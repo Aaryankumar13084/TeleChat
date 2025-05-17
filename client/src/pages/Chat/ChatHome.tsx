@@ -3,6 +3,7 @@ import { useLocation } from 'wouter';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { ChatArea } from '@/components/layout/ChatArea';
 import { ConfirmDialog } from '@/components/modals/ConfirmDialog';
+import { WelcomePage } from '@/pages/Chat/WelcomePage';
 import { useAuth } from '@/hooks/useAuth';
 import { useConversations } from '@/hooks/useConversations';
 import { useWebSocket } from '@/hooks/useWebSocket';
@@ -93,11 +94,17 @@ export default function ChatHome() {
           </div>
         )}
         
-        {/* Main Chat Area */}
-        <ChatArea 
-          conversation={selectedConversation}
-          onMenuToggle={toggleMobileSidebar}
-        />
+        {/* Main Chat Area or Welcome Page */}
+        {selectedConversation ? (
+          <ChatArea 
+            conversation={selectedConversation}
+            onMenuToggle={toggleMobileSidebar}
+          />
+        ) : (
+          <div className="flex-1">
+            <WelcomePage onConversationSelect={handleConversationSelect} />
+          </div>
+        )}
       </div>
       
       {/* Mobile Navigation - Only visible on small screens */}
