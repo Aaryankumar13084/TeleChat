@@ -1,14 +1,15 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import { User } from '@shared/schema';
 
-export interface IUser extends User, Document {}
+export interface IUser extends Omit<User, 'id'>, Document {
+  id: string;
+}
 
 const userSchema = new Schema({
   username: {
     type: String,
     required: true,
-    unique: true,
-    trim: true
+    unique: true
   },
   password: {
     type: String,
@@ -21,8 +22,7 @@ const userSchema = new Schema({
   email: {
     type: String,
     required: true,
-    unique: true,
-    trim: true
+    unique: true
   },
   avatarUrl: {
     type: String,
@@ -40,7 +40,7 @@ const userSchema = new Schema({
     type: Date,
     default: Date.now
   }
-}, { 
+}, {
   timestamps: true,
   toJSON: {
     transform: (_, ret) => {

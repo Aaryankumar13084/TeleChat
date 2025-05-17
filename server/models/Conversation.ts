@@ -1,7 +1,9 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import { Conversation } from '@shared/schema';
 
-export interface IConversation extends Conversation, Document {}
+export interface IConversation extends Omit<Conversation, 'id'>, Document {
+  id: string;
+}
 
 const conversationSchema = new Schema({
   name: {
@@ -10,8 +12,8 @@ const conversationSchema = new Schema({
   },
   isGroup: {
     type: Boolean,
-    default: false,
-    required: true
+    required: true,
+    default: false
   },
   avatarUrl: {
     type: String,
@@ -21,12 +23,17 @@ const conversationSchema = new Schema({
     type: Schema.Types.ObjectId,
     ref: 'Message',
     default: null
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
   }
 }, {
-  timestamps: {
-    createdAt: 'createdAt',
-    updatedAt: 'updatedAt'
-  },
+  timestamps: true,
   toJSON: {
     transform: (_, ret) => {
       ret.id = ret._id;

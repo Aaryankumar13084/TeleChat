@@ -94,7 +94,17 @@ export const insertMessageStatusSchema = createInsertSchema(messageStatus).pick(
 
 // WebSocket Schemas
 export const wsMessageSchema = z.object({
-  type: z.enum(['message', 'status', 'typing', 'user', 'conversation']),
+  type: z.enum([
+    'chat_message', 
+    'message_status', 
+    'typing_indicator', 
+    'connected',
+    'error',
+    'new_message',
+    'message_sent',
+    'message_status_update',
+    'user_status_change'
+  ]),
   payload: z.any(),
 });
 
