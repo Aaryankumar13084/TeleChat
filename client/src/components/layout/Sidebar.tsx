@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Moon, Sun, PlusCircle, Menu, Settings, Users, MessageSquare, Phone } from 'lucide-react';
+import { Search, Moon, Sun, PlusCircle, Menu, Settings, Users, MessageSquare, Phone, UserPlus } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import { ConversationItem } from '@/components/common/ConversationItem';
@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useConversations } from '@/hooks/useConversations';
 import { useDarkMode } from '@/hooks/use-mobile';
+import { UserSearchModal } from '@/components/modals/UserSearchModal';
 
 interface SidebarProps {
   onConversationSelect: (conversation: any) => void;
@@ -22,9 +23,10 @@ export function Sidebar({
   onClose
 }: SidebarProps) {
   const { user, logout } = useAuth();
-  const { conversations, isLoading } = useConversations();
+  const { conversations, isLoading, refetch } = useConversations();
   const { isDarkMode, toggleDarkMode } = useDarkMode();
   const [searchQuery, setSearchQuery] = useState('');
+  const [showUserSearch, setShowUserSearch] = useState(false);
   
   // Filter conversations based on search query
   const filteredConversations = conversations?.filter(conversation => {
@@ -107,9 +109,14 @@ export function Sidebar({
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
               No conversations yet
             </p>
-            <Button variant="outline" size="sm" className="flex items-center">
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Start a new chat
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="flex items-center"
+              onClick={() => setShowUserSearch(true)}
+            >
+              <UserPlus className="mr-2 h-4 w-4" />
+              Find new user to chat
             </Button>
           </div>
         ) : (
@@ -138,8 +145,13 @@ export function Sidebar({
           <MessageSquare className="h-5 w-5" />
         </Button>
         
-        <Button variant="ghost" size="icon" className="text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-secondary">
-          <Users className="h-5 w-5" />
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-secondary"
+          onClick={() => setShowUserSearch(true)}
+        >
+          <UserPlus className="h-5 w-5" />
         </Button>
         
         <Button variant="ghost" size="icon" className="text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-secondary">
@@ -150,6 +162,41 @@ export function Sidebar({
           <Settings className="h-5 w-5" />
         </Button>
       </div>
+      
+      {/* User Search Modal */}
+      <UserSearchModal 
+        isOpen={showUserSearch}
+        onClose={() => setShowUserSearch(false)}
+        onUserSelect={async (userId) => {
+          try {
+            // Create or find direct conversation
+            const response = await fetch(`/api/conversations/direct/${userId}`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+              }
+            });
+            
+            if (!response.ok) {
+              throw new Error('Failed to create conversation');
+            }
+            
+            const conversation = await response.json();
+            
+            // Refresh conversations list
+            refetch();
+            
+            // Select the new conversation
+            onConversationSelect(conversation);
+            
+            // Close the modal
+            setShowUserSearch(false);
+          } catch (error) {
+            console.error('Error selecting user:', error);
+          }
+        }}
+      />
     </div>
   );
 }
