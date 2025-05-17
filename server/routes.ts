@@ -417,7 +417,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log('Using MongoDB search');
         try {
           // Create a simpler search endpoint for now
-          const { UserModel } = require('./models/User');
+          // Using import directly without require
+          const { UserModel } = await import('./models/User');
           console.log('User model loaded');
           
           // Get all users
