@@ -1,112 +1,107 @@
-import type { Express, Request, Response } from "express";
-import { createServer, type Server } from "http";
-import { storage } from "./storage";
-import { WebSocketServer, WebSocket } from 'ws';
-import { ChatWebSocketServer } from './websocket';
-import { authMiddleware, getAuthUser, createToken, verifyPassword, hashPassword } from './auth';
-import {
-  insertUserSchema,
-  insertConversationSchema,
-  insertParticipantSchema,
-  insertMessageSchema
-} from '@shared/schema';
+import { Express, NextFunction, Request, Response } from 'express';
+import { Server, createServer } from 'http';
+import { WebSocketServer } from 'ws';
 import { z } from 'zod';
+
+import { insertUserSchema } from '@shared/schema';
+import { storage } from './storage';
+import { createToken, getAuthUser, hashPassword, verifyPassword, authMiddleware } from './auth';
+import { ChatWebSocketServer } from './websocket';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
   
   // Initialize WebSocket server
+  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
   const chatWss = new ChatWebSocketServer(httpServer);
-
+  
+  console.log('[websocket] WebSocket server initialized');
+  
   // Authentication endpoints
   app.post('/api/auth/register', async (req: Request, res: Response) => {
     try {
-      const registerSchema = insertUserSchema.extend({
-        password: z.string().min(6)
-      });
+      const data = insertUserSchema.extend({
+        confirmPassword: z.string()
+      }).parse(req.body);
       
-      const userData = registerSchema.parse(req.body);
-      
-      // Check if username exists
-      const existingUsername = await storage.getUserByUsername(userData.username);
-      if (existingUsername) {
-        return res.status(400).json({ message: 'Username is already taken' });
+      // Check if passwords match
+      if (data.password !== data.confirmPassword) {
+        return res.status(400).json({ message: 'Passwords do not match' });
       }
       
-      // Check if email exists
-      const existingEmail = await storage.getUserByEmail(userData.email);
-      if (existingEmail) {
-        return res.status(400).json({ message: 'Email is already registered' });
+      // Check if user already exists
+      const existingUserByUsername = await storage.getUserByUsername(data.username);
+      if (existingUserByUsername) {
+        return res.status(400).json({ message: 'Username already taken' });
+      }
+      
+      const existingUserByEmail = await storage.getUserByEmail(data.email);
+      if (existingUserByEmail) {
+        return res.status(400).json({ message: 'Email already in use' });
       }
       
       // Hash password
-      const hashedPassword = await hashPassword(userData.password);
+      const hashedPassword = await hashPassword(data.password);
       
-      // Create user with hashed password
+      // Create user
       const user = await storage.createUser({
-        ...userData,
+        ...data,
         password: hashedPassword,
+        isOnline: true,
+        lastSeen: new Date()
       });
       
       // Create token
       const token = createToken(user);
       
-      // Remove password from response
+      // Return user data and token
       const { password, ...userWithoutPassword } = user;
       
       res.status(201).json({ user: userWithoutPassword, token });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: 'Invalid input data', errors: error.errors });
-      }
-      
-      res.status(500).json({ message: 'Server error during registration' });
+      res.status(500).json({ message: 'Server error' });
     }
   });
   
   app.post('/api/auth/login', async (req: Request, res: Response) => {
     try {
-      const loginSchema = z.object({
-        username: z.string(),
-        password: z.string()
-      });
+      const { username, password } = req.body;
       
-      const { username, password } = loginSchema.parse(req.body);
+      // Check if username and password are provided
+      if (!username || !password) {
+        return res.status(400).json({ message: 'Username and password are required' });
+      }
       
-      // Find user by username
+      // Get user by username
       const user = await storage.getUserByUsername(username);
       
+      // Check if user exists
       if (!user) {
-        return res.status(401).json({ message: 'Invalid username or password' });
+        return res.status(401).json({ message: 'Invalid credentials' });
       }
       
       // Verify password
       const isPasswordValid = await verifyPassword(password, user.password);
       
       if (!isPasswordValid) {
-        return res.status(401).json({ message: 'Invalid username or password' });
+        return res.status(401).json({ message: 'Invalid credentials' });
       }
       
-      // Update user status to online
+      // Update user online status
       await storage.updateUser(user.id, { isOnline: true, lastSeen: new Date() });
       
       // Create token
       const token = createToken(user);
       
-      // Remove password from response
+      // Return user data and token
       const { password: _, ...userWithoutPassword } = user;
       
       res.json({ user: userWithoutPassword, token });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: 'Invalid input data', errors: error.errors });
-      }
-      
-      res.status(500).json({ message: 'Server error during login' });
+      res.status(500).json({ message: 'Server error' });
     }
   });
-
-  // Protected routes (require authentication)
+  
   // User endpoints
   app.get('/api/users/me', authMiddleware, async (req: Request, res: Response) => {
     try {
@@ -116,7 +111,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: 'Authentication required' });
       }
       
-      // Remove password from response
       const { password, ...userWithoutPassword } = user;
       
       res.json(userWithoutPassword);
@@ -133,30 +127,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: 'Authentication required' });
       }
       
-      const updateSchema = z.object({
-        displayName: z.string().optional(),
-        bio: z.string().optional(),
-        avatarUrl: z.string().optional()
+      const { displayName, bio, avatarUrl } = req.body;
+      
+      const updatedUser = await storage.updateUser(user.id, {
+        displayName,
+        bio,
+        avatarUrl
       });
-      
-      const updateData = updateSchema.parse(req.body);
-      
-      // Update user
-      const updatedUser = await storage.updateUser(user.id, updateData);
       
       if (!updatedUser) {
         return res.status(404).json({ message: 'User not found' });
       }
       
-      // Remove password from response
       const { password, ...userWithoutPassword } = updatedUser;
       
       res.json(userWithoutPassword);
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: 'Invalid input data', errors: error.errors });
-      }
-      
       res.status(500).json({ message: 'Server error' });
     }
   });
@@ -170,7 +156,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: 'Authentication required' });
       }
       
-      // Get all conversations with participants and last message
       const conversations = await storage.getConversationsWithParticipantsAndLastMessage(user.id);
       
       res.json(conversations);
@@ -187,45 +172,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: 'Authentication required' });
       }
       
-      const createSchema = insertConversationSchema.extend({
-        participantIds: z.array(z.number()).min(1) // At least one other participant
-      });
+      const { name, isGroup, participantIds } = req.body;
       
-      const { participantIds, ...conversationData } = createSchema.parse(req.body);
+      if (isGroup && (!name || !participantIds || !Array.isArray(participantIds) || participantIds.length === 0)) {
+        return res.status(400).json({ message: 'Group name and participants are required' });
+      }
       
       // Create conversation
-      const conversation = await storage.createConversation(conversationData);
+      const conversation = await storage.createConversation({
+        name: isGroup ? name : null,
+        isGroup: isGroup || false,
+        avatarUrl: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        lastMessageId: null
+      });
       
-      // Add current user as admin participant
+      // Add current user as participant and admin (if group)
       await storage.addParticipant({
         userId: user.id,
         conversationId: conversation.id,
-        isAdmin: true
+        isAdmin: isGroup,
+        joinedAt: new Date()
       });
       
       // Add other participants
-      for (const participantId of participantIds) {
-        if (participantId !== user.id) { // Don't add current user twice
-          await storage.addParticipant({
-            userId: participantId,
-            conversationId: conversation.id,
-            isAdmin: false
-          });
+      if (isGroup && participantIds) {
+        for (const participantId of participantIds) {
+          const participantUser = await storage.getUser(participantId);
+          
+          if (participantUser) {
+            await storage.addParticipant({
+              userId: participantUser.id,
+              conversationId: conversation.id,
+              isAdmin: false,
+              joinedAt: new Date()
+            });
+          }
         }
       }
       
-      // Get full conversation data with participants
-      const fullConversation = {
+      // Get participants
+      const participants = await storage.getParticipantsByConversationId(conversation.id);
+      
+      // Get messages
+      const messages = await storage.getMessagesByConversationId(conversation.id);
+      
+      res.status(201).json({
         ...conversation,
-        participants: await storage.getParticipantsByConversationId(conversation.id)
-      };
-      
-      res.status(201).json(fullConversation);
+        participants,
+        messages
+      });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: 'Invalid input data', errors: error.errors });
-      }
-      
       res.status(500).json({ message: 'Server error' });
     }
   });
@@ -240,6 +238,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const conversationId = parseInt(req.params.id);
       
+      if (isNaN(conversationId)) {
+        return res.status(400).json({ message: 'Invalid conversation ID' });
+      }
+      
       // Check if conversation exists
       const conversation = await storage.getConversation(conversationId);
       
@@ -251,21 +253,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const participant = await storage.getParticipant(user.id, conversationId);
       
       if (!participant) {
-        return res.status(403).json({ message: 'You are not a participant in this conversation' });
+        return res.status(403).json({ message: 'Access denied' });
       }
       
-      // Get all participants
+      // Get participants
       const participants = await storage.getParticipantsByConversationId(conversationId);
       
       // Get messages
       const messages = await storage.getMessagesByConversationId(conversationId);
-      
-      // Mark all unread messages as read
-      for (const message of messages) {
-        if (message.userId !== user.id) {
-          await storage.updateMessageStatus(message.id, user.id, true);
-        }
-      }
       
       res.json({
         ...conversation,
@@ -404,11 +399,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           participants,
           messages
         });
+      }
     } catch (error) {
       console.error('Error creating direct conversation:', error);
-      res.status(500).json({ message: 'Server error' });
-    }
-    } catch (error) {
       res.status(500).json({ message: 'Server error' });
     }
   });
@@ -422,39 +415,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: 'Authentication required' });
       }
       
-      const messageData = insertMessageSchema.parse(req.body);
+      const { conversationId, content, mediaUrl, mediaType } = req.body;
       
-      // Check if user is a participant in the conversation
-      const participant = await storage.getParticipant(user.id, messageData.conversationId);
+      if (!conversationId) {
+        return res.status(400).json({ message: 'Conversation ID is required' });
+      }
+      
+      if (!content && !mediaUrl) {
+        return res.status(400).json({ message: 'Message content or media is required' });
+      }
+      
+      // Check if conversation exists
+      const conversation = await storage.getConversation(conversationId);
+      
+      if (!conversation) {
+        return res.status(404).json({ message: 'Conversation not found' });
+      }
+      
+      // Check if user is a participant
+      const participant = await storage.getParticipant(user.id, conversationId);
       
       if (!participant) {
-        return res.status(403).json({ message: 'You are not a participant in this conversation' });
+        return res.status(403).json({ message: 'Access denied' });
       }
       
       // Create message
       const message = await storage.createMessage({
-        ...messageData,
-        userId: user.id
+        content: content || null,
+        status: 'sent',
+        userId: user.id,
+        conversationId,
+        mediaUrl: mediaUrl || null,
+        mediaType: mediaType || null,
+        sentAt: new Date(),
+        deliveredAt: new Date()
       });
       
-      // Get all participants of this conversation
-      const participants = await storage.getParticipantsByConversationId(messageData.conversationId);
+      // Create message status for all participants
+      const participants = await storage.getParticipantsByConversationId(conversationId);
       
-      // Create message status entries for all participants
       for (const p of participants) {
         await storage.createMessageStatus({
-          messageId: message.id,
           userId: p.userId,
-          isRead: p.userId === user.id // Message is read by sender
+          messageId: message.id,
+          isRead: p.userId === user.id, // Only the sender has read the message initially
+          readAt: p.userId === user.id ? new Date() : null
         });
+      }
+      
+      // Update conversation with last message ID
+      await storage.updateConversation(conversationId, {
+        lastMessageId: message.id,
+        updatedAt: new Date()
+      });
+      
+      // Broadcast message to other participants via WebSocket
+      if (chatWss) {
+        for (const p of participants) {
+          if (p.userId !== user.id) {
+            chatWss.sendToUser(p.userId, {
+              type: 'new_message',
+              payload: {
+                message,
+                conversationId
+              }
+            });
+          }
+        }
       }
       
       res.status(201).json(message);
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: 'Invalid input data', errors: error.errors });
-      }
-      
       res.status(500).json({ message: 'Server error' });
     }
   });
@@ -469,22 +500,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const conversationId = parseInt(req.params.conversationId);
       
-      // Check if user is a participant in the conversation
+      if (isNaN(conversationId)) {
+        return res.status(400).json({ message: 'Invalid conversation ID' });
+      }
+      
+      // Check if user is a participant
       const participant = await storage.getParticipant(user.id, conversationId);
       
       if (!participant) {
-        return res.status(403).json({ message: 'You are not a participant in this conversation' });
+        return res.status(403).json({ message: 'Access denied' });
       }
       
       // Get messages
       const messages = await storage.getMessagesByConversationId(conversationId);
-      
-      // Mark all unread messages as read
-      for (const message of messages) {
-        if (message.userId !== user.id) {
-          await storage.updateMessageStatus(message.id, user.id, true);
-        }
-      }
       
       res.json(messages);
     } catch (error) {
@@ -516,7 +544,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log('Using MongoDB search');
         try {
           // Create a simpler search endpoint for now
-          // Using import directly without require
           const { UserModel } = await import('./models/User');
           console.log('User model loaded');
           
