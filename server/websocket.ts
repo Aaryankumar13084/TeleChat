@@ -16,7 +16,8 @@ export class ChatWebSocketServer {
   private clients: Map<number, Client> = new Map();
 
   constructor(server: Server) {
-    this.wss = new WebSocketServer({ server, path: '/ws' });
+    // Create WebSocket server with a unique path to avoid conflicts
+    this.wss = new WebSocketServer({ server, path: '/chat-ws' });
     
     this.wss.on('connection', async (ws: WebSocket, request: Request) => {
       log('WebSocket connection established', 'websocket');

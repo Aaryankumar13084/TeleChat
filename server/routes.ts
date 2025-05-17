@@ -11,8 +11,7 @@ import { ChatWebSocketServer } from './websocket';
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
   
-  // Initialize WebSocket server
-  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  // Initialize WebSocket server (only one instance)
   const chatWss = new ChatWebSocketServer(httpServer);
   
   console.log('[websocket] WebSocket server initialized');
