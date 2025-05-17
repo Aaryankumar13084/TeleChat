@@ -396,12 +396,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Search users endpoint
   app.get('/api/users/search', authMiddleware, async (req: Request, res: Response) => {
     try {
+      console.log('Searching users with query:', req.query.q);
       const user = getAuthUser(req);
       
       if (!user) {
         return res.status(401).json({ message: 'Authentication required' });
       }
       
+      console.log('Authenticated user:', user);
       const query = req.query.q as string;
       
       if (!query || query.length < 2) {
@@ -412,25 +414,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let results = [];
       
       if (process.env.MONGODB_URI) {
-        // If using MongoDB
-        const { UserModel } = require('./models/User');
-        // Log the current user ID for debugging
-        console.log('Current user ID:', user.id);
-        
-        // We'll search for all users except the current one
-        const users = await UserModel.find({
-          $or: [
-            { username: { $regex: query, $options: 'i' } },
-            { displayName: { $regex: query, $options: 'i' } }
-          ]
-        }).select('-password');
-        
-        // Filter out the current user after fetching
-        const filteredUsers = users.filter(u => u.id !== user.id);
-        
-        // Use the filtered list, not the original list
-        results = filteredUsers.map(u => u.toJSON());
+        console.log('Using MongoDB search');
+        try {
+          // Create a simpler search endpoint for now
+          const { UserModel } = require('./models/User');
+          console.log('User model loaded');
+          
+          // Get all users
+          const users = await UserModel.find({}).select('-password');
+          console.log('Found users:', users.length);
+          
+          // Manual filtering with detailed logging
+          const filteredUsers = [];
+          for (const u of users) {
+            // Skip the current user
+            if (u.id === user.id) {
+              console.log('Skipping current user:', u.username);
+              continue;
+            }
+            
+            // Check if username or displayName matches the query
+            const usernameMatch = u.username.toLowerCase().includes(query.toLowerCase());
+            const displayNameMatch = u.displayName && u.displayName.toLowerCase().includes(query.toLowerCase());
+            
+            if (usernameMatch || displayNameMatch) {
+              console.log('Adding matching user:', u.username);
+              filteredUsers.push(u);
+            }
+          }
+          
+          console.log('Filtered users:', filteredUsers.length);
+          results = filteredUsers.map(u => u.toJSON ? u.toJSON() : u);
+        } catch (dbError) {
+          console.error('MongoDB search error:', dbError);
+          throw dbError;
+        }
       } else {
+        console.log('Using in-memory search');
         // If using in-memory storage as fallback
         const allUsers = Array.from(Object.values((storage as any).usersMap.values()));
         results = allUsers.filter(u => 
@@ -442,9 +462,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ).map(({ password, ...userWithoutPassword }) => userWithoutPassword);
       }
       
+      console.log('Returning results:', results.length);
       res.json(results);
     } catch (error) {
-      res.status(500).json({ message: 'Server error' });
+      console.error('User search error:', error);
+      res.status(500).json({ message: 'Server error', error: error.message });
     }
   });
 
