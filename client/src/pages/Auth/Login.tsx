@@ -49,7 +49,12 @@ export default function Login() {
         title: 'Login successful',
         description: 'Welcome back to TeleChat!',
       });
-      setLocation('/');
+      
+      // Small delay to ensure state updates before redirect
+      setTimeout(() => {
+        setLocation('/');
+      }, 100);
+      
     } catch (error) {
       console.error('Login error:', error);
       toast({
