@@ -286,29 +286,128 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: 'Authentication required' });
       }
       
-      const otherUserId = parseInt(req.params.userId);
+      // With MongoDB we need to use proper ObjectId
+      const userId = req.params.userId;
+      console.log('Creating direct conversation between', user.id, 'and', userId);
       
-      // Check if other user exists
-      const otherUser = await storage.getUser(otherUserId);
+      if (process.env.MONGODB_URI) {
+        // If using MongoDB
+        try {
+          const { UserModel } = await import('./models/User');
+          const mongoose = await import('mongoose');
+          
+          // Check if the user ID is a valid MongoDB ObjectId
+          if (!mongoose.Types.ObjectId.isValid(userId)) {
+            console.log('Invalid ObjectId format:', userId);
+            return res.status(400).json({ message: 'Invalid user ID format' });
+          }
+          
+          // Find the other user by ObjectId
+          const otherUser = await UserModel.findById(userId);
+          
+          if (!otherUser) {
+            console.log('User not found with ID:', userId);
+            return res.status(404).json({ message: 'User not found' });
+          }
+          
+          console.log('Found user:', otherUser.username);
+          
+          // Check if conversation already exists
+          const { ConversationModel } = await import('./models/Conversation');
+          const { ParticipantModel } = await import('./models/Participant');
+          
+          // Find conversations where both users are participants
+          const userConversations = await ParticipantModel.find({ 
+            userId: user.id 
+          }).select('conversationId');
+          
+          const userConversationIds = userConversations.map(p => p.conversationId);
+          
+          const sharedConversations = await ParticipantModel.find({
+            userId: otherUser.id,
+            conversationId: { $in: userConversationIds }
+          }).populate('conversationId');
+          
+          // Filter to find direct (non-group) conversations
+          let existingConversation = null;
+          for (const participant of sharedConversations) {
+            const conv = participant.conversationId;
+            if (!conv.isGroup) {
+              existingConversation = conv;
+              break;
+            }
+          }
+          
+          if (existingConversation) {
+            console.log('Found existing conversation:', existingConversation.id);
+            return res.json(existingConversation);
+          }
+          
+          // Create new conversation
+          const newConversation = new ConversationModel({
+            isGroup: false,
+            name: null,
+            avatarUrl: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            lastMessageId: null
+          });
+          
+          await newConversation.save();
+          console.log('Created new conversation:', newConversation.id);
+          
+          // Add participants
+          const participant1 = new ParticipantModel({
+            userId: user.id,
+            conversationId: newConversation.id,
+            isAdmin: false,
+            joinedAt: new Date()
+          });
+          
+          const participant2 = new ParticipantModel({
+            userId: otherUser.id,
+            conversationId: newConversation.id,
+            isAdmin: false,
+            joinedAt: new Date()
+          });
+          
+          await Promise.all([participant1.save(), participant2.save()]);
+          console.log('Added participants');
+          
+          return res.status(201).json(newConversation);
+        } catch (dbError) {
+          console.error('MongoDB error creating direct conversation:', dbError);
+          throw dbError;
+        }
+      } else {
+        // For in-memory storage, continue with parseInt
+        const otherUserId = parseInt(userId);
+        
+        // Check if other user exists
+        const otherUser = await storage.getUser(otherUserId);
+        
+        if (!otherUser) {
+          return res.status(404).json({ message: 'User not found' });
+        }
+        
+        // Find or create one-to-one conversation
+        const conversation = await storage.findOrCreateOneToOneConversation(user.id, otherUserId);
       
-      if (!otherUser) {
-        return res.status(404).json({ message: 'User not found' });
-      }
-      
-      // Find or create one-to-one conversation
-      const conversation = await storage.findOrCreateOneToOneConversation(user.id, otherUserId);
-      
-      // Get participants
-      const participants = await storage.getParticipantsByConversationId(conversation.id);
-      
-      // Get messages
-      const messages = await storage.getMessagesByConversationId(conversation.id);
-      
-      res.json({
-        ...conversation,
-        participants,
-        messages
-      });
+        // Get participants
+        const participants = await storage.getParticipantsByConversationId(conversation.id);
+        
+        // Get last message
+        const messages = await storage.getMessagesByConversationId(conversation.id);
+        
+        return res.json({
+          ...conversation,
+          participants,
+          messages
+        });
+    } catch (error) {
+      console.error('Error creating direct conversation:', error);
+      res.status(500).json({ message: 'Server error' });
+    }
     } catch (error) {
       res.status(500).json({ message: 'Server error' });
     }

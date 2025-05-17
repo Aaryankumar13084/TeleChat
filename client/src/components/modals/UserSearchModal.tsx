@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button';
 import { UserAvatar } from '@/components/common/UserAvatar';
 
 interface User {
-  id: number;
+  id: string; // Changed to string for MongoDB ObjectId compatibility
   username: string;
   displayName: string;
   avatarUrl: string | null;
@@ -27,7 +27,7 @@ interface User {
 interface UserSearchModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onUserSelect: (userId: number) => void;
+  onUserSelect: (userId: string) => void;
 }
 
 export function UserSearchModal({ isOpen, onClose, onUserSelect }: UserSearchModalProps) {
@@ -62,15 +62,24 @@ export function UserSearchModal({ isOpen, onClose, onUserSelect }: UserSearchMod
     enabled: shouldSearch && !!token,
   });
   
-  const handleUserSelect = async (userId: number) => {
+  const handleUserSelect = async (userId: string) => {
     try {
+      console.log('Selecting user with ID:', userId);
       // Create or get a direct conversation with this user
-      const response = await apiRequest(
-        'POST',
-        `/api/conversations/direct/${userId}`
-      );
+      const response = await fetch(`/api/conversations/direct/${userId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`${response.status}: ${await response.text()}`);
+      }
       
       const conversation = await response.json();
+      console.log('Conversation created/found:', conversation);
       
       // Close modal and pass the conversation to parent
       onClose();
