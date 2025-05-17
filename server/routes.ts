@@ -414,19 +414,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (process.env.MONGODB_URI) {
         // If using MongoDB
         const { UserModel } = require('./models/User');
+        // Log the current user ID for debugging
+        console.log('Current user ID:', user.id);
+        
+        // We'll search for all users except the current one
         const users = await UserModel.find({
-          $and: [
-            { _id: { $ne: user.id } }, // Exclude current user
-            {
-              $or: [
-                { username: { $regex: query, $options: 'i' } },
-                { displayName: { $regex: query, $options: 'i' } }
-              ]
-            }
+          $or: [
+            { username: { $regex: query, $options: 'i' } },
+            { displayName: { $regex: query, $options: 'i' } }
           ]
         }).select('-password');
         
-        results = users.map(u => u.toJSON());
+        // Filter out the current user after fetching
+        const filteredUsers = users.filter(u => u.id !== user.id);
+        
+        // Use the filtered list, not the original list
+        results = filteredUsers.map(u => u.toJSON());
       } else {
         // If using in-memory storage as fallback
         const allUsers = Array.from(Object.values((storage as any).usersMap.values()));
