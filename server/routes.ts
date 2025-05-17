@@ -409,14 +409,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Search users by username or display name
-      const allUsers = Array.from(Object.values((storage as any).usersMap.values()));
-      const results = allUsers.filter(u => 
-        u.id !== user.id && // Exclude current user
-        (
-          u.username.toLowerCase().includes(query.toLowerCase()) ||
-          u.displayName.toLowerCase().includes(query.toLowerCase())
-        )
-      ).map(({ password, ...userWithoutPassword }) => userWithoutPassword);
+      let results = [];
+      
+      if (process.env.MONGODB_URI) {
+        // If using MongoDB
+        const { UserModel } = require('./models/User');
+        const users = await UserModel.find({
+          $and: [
+            { _id: { $ne: user.id } }, // Exclude current user
+            {
+              $or: [
+                { username: { $regex: query, $options: 'i' } },
+                { displayName: { $regex: query, $options: 'i' } }
+              ]
+            }
+          ]
+        }).select('-password');
+        
+        results = users.map(u => u.toJSON());
+      } else {
+        // If using in-memory storage as fallback
+        const allUsers = Array.from(Object.values((storage as any).usersMap.values()));
+        results = allUsers.filter(u => 
+          u.id !== user.id && // Exclude current user
+          (
+            u.username.toLowerCase().includes(query.toLowerCase()) ||
+            u.displayName.toLowerCase().includes(query.toLowerCase())
+          )
+        ).map(({ password, ...userWithoutPassword }) => userWithoutPassword);
+      }
       
       res.json(results);
     } catch (error) {
