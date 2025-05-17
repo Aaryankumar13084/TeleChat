@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { connectToMongoDB } from "./db";
 
 const app = express();
 app.use(express.json());
@@ -37,6 +38,19 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Connect to MongoDB if URI is provided
+  try {
+    if (process.env.MONGODB_URI) {
+      await connectToMongoDB();
+      log('Successfully connected to MongoDB', 'database');
+    } else {
+      log('No MongoDB URI provided, using in-memory storage', 'database');
+    }
+  } catch (error) {
+    log(`Failed to connect to MongoDB: ${error}`, 'database');
+    log('Falling back to in-memory storage', 'database');
+  }
+  
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

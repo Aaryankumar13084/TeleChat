@@ -6,6 +6,7 @@ import {
   type Message, type InsertMessage,
   type MessageStatus, type InsertMessageStatus
 } from "@shared/schema";
+import { MongodbStorage } from './mongodb-storage';
 
 export interface IStorage {
   // User methods
@@ -620,4 +621,8 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Create the appropriate storage based on environment
+const MONGODB_URI = process.env.MONGODB_URI;
+
+// Export the chosen storage implementation
+export const storage: IStorage = MONGODB_URI ? new MongodbStorage() : new MemStorage();
