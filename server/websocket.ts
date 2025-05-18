@@ -7,13 +7,13 @@ import { getAuthUser } from './auth';
 import { Request } from 'express';
 
 interface Client {
-  userId: number;
+  userId: number | string;
   ws: WebSocket;
 }
 
 export class ChatWebSocketServer {
   private wss: WebSocketServer;
-  private clients: Map<number, Client> = new Map();
+  private clients: Map<string, Client> = new Map();
 
   constructor(server: Server) {
     // Create WebSocket server with a unique path to avoid conflicts
@@ -27,8 +27,10 @@ export class ChatWebSocketServer {
       const userId = user?.id || null;
       
       if (userId) {
+        // Convert to string ID to ensure consistency
+        const userIdStr = userId.toString();
         // Store client connection
-        this.clients.set(userId, { userId, ws });
+        this.clients.set(userIdStr, { userId, ws });
         
         // Update user's online status
         if (user) {
@@ -67,7 +69,8 @@ export class ChatWebSocketServer {
         log('WebSocket connection closed', 'websocket');
         
         if (userId) {
-          this.clients.delete(userId);
+          const userIdStr = userId.toString();
+          this.clients.delete(userIdStr);
           
           // Update user's online status and last seen time
           await storage.updateUser(userId, {
@@ -245,11 +248,15 @@ export class ChatWebSocketServer {
     }
   }
   
-  public sendToUser(userId: number, data: any): void {
-    const client = this.clients.get(userId);
+  public sendToUser(userId: number | string, data: any): void {
+    // Convert userId to string for map lookup
+    const userIdStr = userId.toString();
+    const client = this.clients.get(userIdStr);
     
     if (client && client.ws.readyState === WebSocket.OPEN) {
       client.ws.send(JSON.stringify(data));
+    } else {
+      log(`Cannot send message to user ${userIdStr} - not connected or socket not open`, 'websocket');
     }
   }
   
