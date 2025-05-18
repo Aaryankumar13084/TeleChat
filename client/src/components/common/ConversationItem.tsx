@@ -9,9 +9,15 @@ interface ConversationItemProps {
   conversation: any; // Simplified for brevity
   isActive?: boolean;
   onClick?: () => void;
+  onUserProfileClick?: (userId: string) => void;
 }
 
-export function ConversationItem({ conversation, isActive = false, onClick }: ConversationItemProps) {
+export function ConversationItem({ 
+  conversation, 
+  isActive = false, 
+  onClick,
+  onUserProfileClick
+}: ConversationItemProps) {
   const { user } = useAuth();
   
   // Format timestamp into readable time
@@ -91,11 +97,21 @@ export function ConversationItem({ conversation, isActive = false, onClick }: Co
       }
     } else if (conversation.otherUser) {
       return (
-        <UserAvatar 
-          user={conversation.otherUser} 
-          showStatus={true}
-          size="lg"
-        />
+        <div 
+          className={onUserProfileClick ? "cursor-pointer" : ""}
+          onClick={(e) => {
+            if (onUserProfileClick && conversation.otherUser) {
+              e.stopPropagation(); // Prevent triggering the conversation click
+              onUserProfileClick(conversation.otherUser.id);
+            }
+          }}
+        >
+          <UserAvatar 
+            user={conversation.otherUser} 
+            showStatus={true}
+            size="lg"
+          />
+        </div>
       );
     }
     

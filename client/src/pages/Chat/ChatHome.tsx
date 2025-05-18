@@ -18,6 +18,7 @@ export default function ChatHome() {
   const [selectedConversation, setSelectedConversation] = useState<any>(null);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string | undefined>();
   
   // Initialize WebSocket connection
   const { isConnected } = useWebSocket();
@@ -44,9 +45,17 @@ export default function ChatHome() {
   // Handle conversation selection
   const handleConversationSelect = (conversation: any) => {
     setSelectedConversation(conversation);
+    // Clear any selected user ID when a conversation is selected
+    setSelectedUserId(undefined);
     if (isMobile) {
       setShowMobileSidebar(false);
     }
+  };
+  
+  // Handle user selection for displaying profile
+  const handleUserSelect = (userId: string) => {
+    setSelectedUserId(userId);
+    setSelectedConversation(null); // Clear any selected conversation
   };
   
   // Handle mobile menu toggle
@@ -103,7 +112,10 @@ export default function ChatHome() {
           />
         ) : (
           <div className="flex-1">
-            <WelcomePage onConversationSelect={handleConversationSelect} />
+            <WelcomePage 
+              onConversationSelect={handleConversationSelect} 
+              selectedUserId={selectedUserId} 
+            />
           </div>
         )}
       </div>
