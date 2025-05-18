@@ -105,8 +105,11 @@ export const useWebSocket = (options: WebSocketOptions = {}) => {
             return [message];
           });
           
-          // Force a refresh of the conversations to update the UI
+          // Make sure to refetch conversations to show latest message in the sidebar
           queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
+          
+          // Force a refetch of the specific conversation's messages to ensure UI update
+          queryClient.refetchQueries({ queryKey: ['/api/messages', conversationId] });
         }
         
         // Handle message status updates
