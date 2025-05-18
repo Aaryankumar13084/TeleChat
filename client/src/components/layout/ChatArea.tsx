@@ -388,6 +388,12 @@ export function ChatArea({ conversation, onMenuToggle }: ChatAreaProps) {
                     }
                     onImageClick={handleImageClick}
                     onDocumentClick={(url) => window.open(url, '_blank')}
+                    onDeleteMessage={(messageId) => {
+                      // Call the delete message function from useMessages
+                      if (conversation?.id) {
+                        deleteMessage(messageId);
+                      }
+                    }}
                   />
                 ))}
               </div>

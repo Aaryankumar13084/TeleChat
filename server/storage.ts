@@ -183,13 +183,15 @@ export class MemStorage implements IStorage {
   }
   
   // Message methods
-  async getMessage(id: number): Promise<Message | undefined> {
-    return this.messagesMap.get(id);
+  async getMessage(id: number | string): Promise<Message | undefined> {
+    const messageId = typeof id === 'string' ? parseInt(id) : id;
+    return this.messagesMap.get(messageId);
   }
   
-  async getMessagesByConversationId(conversationId: number): Promise<Message[]> {
+  async getMessagesByConversationId(conversationId: number | string): Promise<Message[]> {
+    const convId = typeof conversationId === 'string' ? parseInt(conversationId) : conversationId;
     return Array.from(this.messagesMap.values())
-      .filter(m => m.conversationId === conversationId)
+      .filter(m => m.conversationId === convId)
       .sort((a, b) => a.sentAt.getTime() - b.sentAt.getTime());
   }
   
@@ -217,13 +219,43 @@ export class MemStorage implements IStorage {
     return message;
   }
   
-  async updateMessage(id: number, updateData: Partial<Message>): Promise<Message | undefined> {
-    const message = this.messagesMap.get(id);
+  async updateMessage(id: number | string, updateData: Partial<Message>): Promise<Message | undefined> {
+    const messageId = typeof id === 'string' ? parseInt(id) : id;
+    const message = this.messagesMap.get(messageId);
     if (!message) return undefined;
     
     const updatedMessage = { ...message, ...updateData };
-    this.messagesMap.set(id, updatedMessage);
+    this.messagesMap.set(messageId, updatedMessage);
     return updatedMessage;
+  }
+  
+  async deleteMessage(id: number | string): Promise<boolean> {
+    const messageId = typeof id === 'string' ? parseInt(id) : id;
+    const message = this.messagesMap.get(messageId);
+    
+    if (!message) {
+      return false;
+    }
+    
+    // Remove the message
+    this.messagesMap.delete(messageId);
+    
+    // Update conversation if this was the last message
+    const conversation = this.conversationsMap.get(message.conversationId);
+    if (conversation && conversation.lastMessageId === messageId) {
+      // Find the new latest message for this conversation
+      const conversationMessages = Array.from(this.messagesMap.values())
+        .filter(m => m.conversationId === message.conversationId)
+        .sort((a, b) => b.sentAt.getTime() - a.sentAt.getTime());
+      
+      // Update the conversation
+      this.updateConversation(message.conversationId, {
+        lastMessageId: conversationMessages.length > 0 ? conversationMessages[0].id : null,
+        updatedAt: new Date()
+      });
+    }
+    
+    return true;
   }
   
   // Message status methods
