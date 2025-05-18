@@ -52,8 +52,19 @@ export function UserSearchModal({ isOpen, onClose, onUserSelect }: UserSearchMod
       try {
         const response = await apiRequest(
           'GET', 
-          `/api/users/search?q=${encodeURIComponent(searchQuery)}`
+          `/api/users/search?q=${encodeURIComponent(searchQuery)}`,
+          undefined,
+          {
+            'Authorization': `Bearer ${token}`
+          }
         );
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`Search error: ${response.status}`, errorText);
+          throw new Error(`Search failed: ${response.status}`);
+        }
+        
         return response.json();
       } catch (error) {
         console.error('Error searching users:', error);
