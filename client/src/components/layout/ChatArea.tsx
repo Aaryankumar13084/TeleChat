@@ -10,6 +10,7 @@ import { useMessages } from '@/hooks/useMessages';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { ImagePreviewModal } from '@/components/modals/ImagePreviewModal';
 import { ProfileModal } from '@/components/modals/ProfileModal';
+import { EntityId, isSameId, getIdAsString } from '@/types/mongodb';
 
 interface ChatAreaProps {
   conversation: any; // Simplified for brevity
@@ -112,10 +113,13 @@ export function ChatArea({ conversation, onMenuToggle }: ChatAreaProps) {
   
   // Check if there's a user typing
   const isTyping = () => {
-    if (!conversation?.id || !typingUsers[conversation.id]) return false;
+    if (!conversation?.id) return false;
     
-    return Object.entries(typingUsers[conversation.id])
-      .some(([userId, isTyping]) => Number(userId) !== user?.id && isTyping);
+    const convId = getIdAsString(conversation.id);
+    if (!typingUsers[convId]) return false;
+    
+    return Object.entries(typingUsers[convId])
+      .some(([userId, isTyping]) => !isSameId(userId, user?.id) && isTyping);
   };
   
   // Render typing indicator
@@ -128,12 +132,13 @@ export function ChatArea({ conversation, onMenuToggle }: ChatAreaProps) {
       typingUser = conversation?.otherUser;
     } else {
       // Find the first typing user
-      const typingUserId = Object.entries(typingUsers[conversation.id])
-        .find(([userId, isTyping]) => Number(userId) !== user?.id && isTyping)?.[0];
+      const convId = getIdAsString(conversation.id);
+      const typingUserId = Object.entries(typingUsers[convId])
+        .find(([userId, isTyping]) => !isSameId(userId, user?.id) && isTyping)?.[0];
       
       if (typingUserId) {
         const participant = conversation.participants?.find(
-          (p: any) => p.userId === Number(typingUserId)
+          (p: any) => isSameId(p.userId, typingUserId)
         );
         typingUser = participant?.user;
       }
@@ -311,7 +316,10 @@ export function ChatArea({ conversation, onMenuToggle }: ChatAreaProps) {
         onSendMessage={handleSendMessage}
         onTyping={(isTyping) => {
           if (conversation?.id) {
-            sendTypingIndicator(conversation.id, isTyping);
+            // Convert ID to number if needed by sendTypingIndicator
+            const convId = typeof conversation.id === 'string' ? 
+              parseInt(conversation.id, 10) : conversation.id;
+            sendTypingIndicator(convId, isTyping);
           }
         }}
       />
