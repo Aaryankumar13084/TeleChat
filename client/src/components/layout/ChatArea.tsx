@@ -31,10 +31,13 @@ export function ChatArea({ conversation, onMenuToggle }: ChatAreaProps) {
   
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (messagesEndRef.current && messages?.length > 0) {
+      // Use a small timeout to ensure DOM is updated
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
     }
-  }, [messages]);
+  }, [messages, messages?.length]);
   
   // Get conversation title
   const getConversationTitle = () => {

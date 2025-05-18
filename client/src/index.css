@@ -74,3 +74,81 @@
   background-color: hsl(207, 90%, 54%) !important;
   color: white !important;
 }
+
+/* Mobile responsive styles */
+@media (max-width: 768px) {
+  .chat-container {
+    padding: 0.5rem !important;
+  }
+  
+  .message-bubble {
+    max-width: 85% !important;
+  }
+}
+
+/* Typing animation */
+.animate-typing {
+  animation: typing 1.5s infinite;
+}
+
+@keyframes typing {
+  0% { transform: translateY(0px); }
+  28% { transform: translateY(-5px); }
+  44% { transform: translateY(0px); }
+}
+
+/* Make scrollbars nicer */
+.chat-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-container::-webkit-scrollbar-thumb {
+  background-color: rgba(155, 155, 155, 0.5);
+  border-radius: 20px;
+}
+
+/* Video call and voice call modal styles */
+.call-controls {
+  position: absolute;
+  bottom: 20px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  z-index: 50;
+}
+
+.call-button {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.end-call {
+  background-color: #ff3b30;
+}
+
+/* Profile edit styles */
+.avatar-upload {
+  position: relative;
+  width: 100px;
+  height: 100px;
+  margin: 0 auto;
+}
+
+.avatar-upload .avatar-edit {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  z-index: 1;
+}
