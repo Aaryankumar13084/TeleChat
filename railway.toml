@@ -4,8 +4,7 @@ nixpacksVersion = "1.15.0"
 nixpacksAppType = "node"
 
 [deploy]
-startCommand = "npm run dev"
-
+startCommand = "npm run build && npm run start"
 
 [vars]
 NODE_ENV = "production"
