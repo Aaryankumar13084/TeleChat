@@ -109,6 +109,10 @@ export class ChatWebSocketServer {
         await this.handleMessageStatus(message.payload, userId);
         break;
         
+      case 'delete_message':
+        await this.handleDeleteMessage(message.payload, userId);
+        break;
+        
       default:
         ws.send(JSON.stringify({
           type: 'error',
