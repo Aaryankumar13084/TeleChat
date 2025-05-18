@@ -82,6 +82,7 @@ export default function ChatHome() {
         <div className="hidden md:block">
           <Sidebar 
             onConversationSelect={handleConversationSelect}
+            onUserProfileClick={handleUserSelect}
             selectedConversationId={selectedConversation?.id}
           />
         </div>
@@ -96,6 +97,7 @@ export default function ChatHome() {
             <div className="fixed inset-y-0 left-0 z-50 w-full max-w-xs">
               <Sidebar 
                 onConversationSelect={handleConversationSelect}
+                onUserProfileClick={handleUserSelect}
                 selectedConversationId={selectedConversation?.id}
                 isMobile={true}
                 onClose={() => setShowMobileSidebar(false)}

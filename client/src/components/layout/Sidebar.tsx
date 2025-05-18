@@ -12,13 +12,15 @@ import { EntityId } from '@/types/mongodb';
 
 interface SidebarProps {
   onConversationSelect: (conversation: any) => void;
+  onUserProfileClick?: (userId: string) => void;
   selectedConversationId?: EntityId;
   isMobile?: boolean;
   onClose?: () => void;
 }
 
 export function Sidebar({ 
-  onConversationSelect, 
+  onConversationSelect,
+  onUserProfileClick,
   selectedConversationId, 
   isMobile = false,
   onClose
@@ -138,6 +140,7 @@ export function Sidebar({
                       onClose();
                     }
                   }}
+                  onUserProfileClick={onUserProfileClick}
                 />
               </li>
             ))}
