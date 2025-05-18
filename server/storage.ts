@@ -29,10 +29,11 @@ export interface IStorage {
   removeParticipant(userId: number, conversationId: number): Promise<boolean>;
   
   // Message methods
-  getMessage(id: number): Promise<Message | undefined>;
-  getMessagesByConversationId(conversationId: number): Promise<Message[]>;
+  getMessage(id: number | string): Promise<Message | undefined>;
+  getMessagesByConversationId(conversationId: number | string): Promise<Message[]>;
   createMessage(message: InsertMessage): Promise<Message>;
-  updateMessage(id: number, message: Partial<Message>): Promise<Message | undefined>;
+  updateMessage(id: number | string, message: Partial<Message>): Promise<Message | undefined>;
+  deleteMessage(id: number | string): Promise<boolean>;
   
   // Message status methods
   getMessageStatus(messageId: number, userId: number): Promise<MessageStatus | undefined>;

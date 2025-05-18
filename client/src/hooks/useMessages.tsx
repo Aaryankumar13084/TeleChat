@@ -76,12 +76,45 @@ export const useMessages = (conversationId?: number | string) => {
     }
   });
   
+  // Delete a message
+  const deleteMessageMutation = useMutation({
+    mutationFn: async (messageId: string | number) => {
+      console.log("Deleting message:", messageId);
+      const res = await apiRequest('DELETE', `/api/messages/${messageId}`);
+      if (!res.ok) {
+        throw new Error('Failed to delete message');
+      }
+      return { messageId, conversationId };
+    },
+    onSuccess: (data) => {
+      console.log("Message deleted successfully:", data);
+      
+      // Optimistically update messages cache to remove deleted message
+      queryClient.setQueryData(['/api/messages', data.conversationId], (oldData: any) => {
+        if (Array.isArray(oldData)) {
+          const filteredData = oldData.filter(message => message.id !== data.messageId);
+          console.log("Updated messages cache after deletion:", filteredData);
+          return filteredData;
+        }
+        return oldData;
+      });
+      
+      // Invalidate conversations to update last message
+      queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
+    },
+    onError: (error) => {
+      console.error("Error deleting message:", error);
+    }
+  });
+
   return {
     messages: messages || [],
     isLoading,
     error,
     refetch,
     sendMessage: sendMessageMutation.mutate,
-    isSending: sendMessageMutation.isPending
+    isSending: sendMessageMutation.isPending,
+    deleteMessage: deleteMessageMutation.mutate,
+    isDeleting: deleteMessageMutation.isPending
   };
 };

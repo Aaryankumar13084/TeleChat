@@ -554,6 +554,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Delete a message endpoint
+  app.delete('/api/messages/:messageId', authMiddleware, async (req: Request, res: Response) => {
+    const { messageId } = req.params;
+    const user = getAuthUser(req);
+    
+    try {
+      if (!user) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      
+      // Convert message ID to the appropriate type
+      let msgId;
+      try {
+        msgId = parseInt(messageId);
+      } catch (e) {
+        msgId = messageId; // For MongoDB string IDs
+      }
+      
+      // Get the message to check ownership
+      const message = await storage.getMessage(msgId);
+      
+      if (!message) {
+        return res.status(404).json({ message: 'Message not found' });
+      }
+      
+      // Check if user is authorized to delete the message
+      if (message.userId.toString() !== user.id.toString()) {
+        return res.status(403).json({ message: 'Not authorized to delete this message' });
+      }
+      
+      // Delete the message
+      const success = await storage.deleteMessage(msgId);
+      
+      if (success) {
+        res.status(200).json({ success: true, messageId: msgId, conversationId: message.conversationId });
+      } else {
+        res.status(500).json({ message: 'Failed to delete message' });
+      }
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      res.status(500).json({ message: 'Server error' });
+    }
+  });
+  
   // Search users endpoint
   app.get('/api/users/search', authMiddleware, async (req: Request, res: Response) => {
     try {
