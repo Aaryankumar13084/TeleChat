@@ -210,6 +210,57 @@ export class ChatWebSocketServer {
     }
   }
   
+  private async handleDeleteMessage(payload: any, userId: number | string | null): Promise<void> {
+    if (!userId || !payload.messageId || !payload.conversationId) return;
+    
+    try {
+      // Convert IDs to match expected format
+      const messageId = payload.messageId;
+      const conversationId = payload.conversationId;
+      
+      log(`Deleting message ${messageId} from conversation ${conversationId}`, 'websocket');
+      
+      // Get the message first to verify ownership
+      const message = await storage.getMessage(messageId);
+      
+      if (!message) {
+        log(`Message ${messageId} not found for deletion`, 'websocket');
+        return;
+      }
+      
+      // Check if user is the message sender or has admin rights
+      if (message.userId.toString() !== userId.toString()) {
+        log(`User ${userId} is not authorized to delete message ${messageId}`, 'websocket');
+        return;
+      }
+      
+      // Delete the message
+      const deleted = await storage.deleteMessage(messageId);
+      
+      if (deleted) {
+        // Get all participants in the conversation
+        const participants = await storage.getParticipantsByConversationId(conversationId);
+        
+        // Notify all participants about the deletion
+        for (const participant of participants) {
+          this.sendToUser(participant.userId, {
+            type: 'message_deleted',
+            payload: {
+              messageId,
+              conversationId
+            }
+          });
+        }
+        
+        log(`Message ${messageId} deleted successfully`, 'websocket');
+      } else {
+        log(`Failed to delete message ${messageId}`, 'websocket');
+      }
+    } catch (error) {
+      log(`Error handling message deletion: ${error}`, 'websocket');
+    }
+  }
+  
   private async handleMessageStatus(payload: any, userId: number | null): Promise<void> {
     if (!userId || !payload.messageId) return;
     
