@@ -15,6 +15,13 @@ export const useMessages = (conversationId?: number | string) => {
   } = useQuery({
     queryKey: ['/api/messages', conversationId],
     enabled: !!token && !!conversationId,
+    queryFn: async () => {
+      console.log(`Fetching messages for conversation ID: ${conversationId}`);
+      const response = await apiRequest('GET', `/api/messages/${conversationId}`);
+      const data = await response.json();
+      console.log("Messages received:", data);
+      return data;
+    }
   });
   
   // Send a new message

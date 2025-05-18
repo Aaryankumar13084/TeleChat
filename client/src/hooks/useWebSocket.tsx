@@ -83,16 +83,31 @@ export const useWebSocket = (options: WebSocketOptions = {}) => {
         options.onMessage?.(data);
         
         // Handle new messages and update cache
-        if (data.type === 'message') {
-          const { message } = data.payload;
+        if (data.type === 'new_message') {
+          console.log('New message received via WebSocket:', data.payload);
+          const { message, conversationId } = data.payload;
           
           // Update messages cache
-          queryClient.setQueryData(['/api/messages', message.conversationId], (oldData: any) => {
+          queryClient.setQueryData(['/api/messages', conversationId], (oldData: any) => {
+            console.log('Current messages in cache:', oldData);
             if (Array.isArray(oldData)) {
-              return [...oldData, message];
+              const updatedMessages = [...oldData, message];
+              console.log('Updated messages cache:', updatedMessages);
+              return updatedMessages;
             }
+            console.log('No messages in cache, setting to:', [message]);
             return [message];
           });
+          
+          // Also update messages for the current conversation ID string representation
+          if (typeof conversationId === 'string') {
+            queryClient.setQueryData(['/api/messages', conversationId], (oldData: any) => {
+              if (Array.isArray(oldData)) {
+                return [...oldData, message];
+              }
+              return [message];
+            });
+          }
           
           // Invalidate the conversations query to update the last message
           queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
