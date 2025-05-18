@@ -11,7 +11,7 @@ import { UserSearchModal } from '@/components/modals/UserSearchModal';
 
 interface SidebarProps {
   onConversationSelect: (conversation: any) => void;
-  selectedConversationId?: number;
+  selectedConversationId?: number | string;
   isMobile?: boolean;
   onClose?: () => void;
 }

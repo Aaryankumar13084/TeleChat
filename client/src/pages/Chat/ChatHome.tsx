@@ -32,7 +32,7 @@ export default function ChatHome() {
   useEffect(() => {
     if (selectedConversation && conversations) {
       const updatedConversation = conversations.find(
-        (conv) => conv.id === selectedConversation.id
+        (conv) => String(conv.id) === String(selectedConversation.id)
       );
       if (updatedConversation) {
         setSelectedConversation(updatedConversation);

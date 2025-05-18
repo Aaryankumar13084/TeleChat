@@ -18,7 +18,7 @@ export const useConversations = () => {
   });
   
   // Get a specific conversation by ID
-  const getConversation = (id: number) => {
+  const getConversation = (id: number | string) => {
     return useQuery({
       queryKey: ['/api/conversations', id],
       enabled: !!token && !!id,
@@ -27,7 +27,7 @@ export const useConversations = () => {
   
   // Create a new conversation
   const createConversationMutation = useMutation({
-    mutationFn: async (data: InsertConversation & { participantIds: number[] }) => {
+    mutationFn: async (data: InsertConversation & { participantIds: (number | string)[] }) => {
       const res = await apiRequest('POST', '/api/conversations', data);
       return res.json();
     },
