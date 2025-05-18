@@ -141,7 +141,7 @@ export function UserSearchModal({ isOpen, onClose, onUserSelect }: UserSearchMod
             </div>
           ) : (
             <ul className="space-y-2">
-              {users?.map((user: User) => (
+              {Array.isArray(users) && users.map((user: User) => (
                 <li key={user.id} className="flex items-center justify-between p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800">
                   <div className="flex items-center">
                     <UserAvatar user={user} showStatus={true} />
