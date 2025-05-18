@@ -13,7 +13,7 @@ export const useWebSocket = (options: WebSocketOptions = {}) => {
   const { user, token } = useAuth();
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [typingUsers, setTypingUsers] = useState<Record<number, Record<number, boolean>>>({});
+  const [typingUsers, setTypingUsers] = useState<Record<string, Record<string, boolean>>>({});
   
   const socket = useRef<WebSocket | null>(null);
   const reconnectTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -172,8 +172,10 @@ export const useWebSocket = (options: WebSocketOptions = {}) => {
   }, []);
   
   // Send typing indicator
-  const sendTypingIndicator = useCallback((conversationId: number, isTyping: boolean) => {
-    sendMessage('typing', { conversationId, isTyping });
+  const sendTypingIndicator = useCallback((conversationId: number | string, isTyping: boolean) => {
+    // Convert to string if it's not already
+    const convIdStr = typeof conversationId === 'number' ? conversationId.toString() : conversationId;
+    sendMessage('typing', { conversationId: convIdStr, isTyping });
   }, [sendMessage]);
   
   // Connect/disconnect based on auth status
