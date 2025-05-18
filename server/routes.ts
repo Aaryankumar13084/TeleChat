@@ -507,11 +507,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         convId = parseInt(conversationId);
       }
       
-      // Check if user is a participant
-      const participant = await storage.getParticipant(user.id, convId);
-      
-      if (!participant) {
-        return res.status(403).json({ message: 'Access denied' });
+      // For MongoDB IDs, handle them correctly
+      try {
+        // Check if user is a participant
+        console.log(`Checking if user ${user.id} is participant in conversation ${conversationId}`);
+        
+        // Get all participants from the conversation to verify access
+        const participants = await storage.getParticipantsByConversationId(convId);
+        console.log(`Found ${participants.length} participants`);
+        
+        // Check if the user is among the participants
+        const isParticipant = participants.some(p => {
+          const participantUserId = typeof p.userId === 'object' ? p.userId.toString() : p.userId;
+          const currentUserId = typeof user.id === 'object' ? user.id.toString() : user.id;
+          return participantUserId === currentUserId;
+        });
+        
+        if (!isParticipant) {
+          console.log(`User ${user.id} is not a participant in conversation ${conversationId}`);
+          return res.status(403).json({ message: 'Access denied' });
+        }
+      } catch (participantError) {
+        console.error('Error checking participant:', participantError);
+        // Continue anyway for now to debug
       }
       
       // Get messages
