@@ -180,7 +180,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { name, isGroup, participantIds } = req.body;
 
-      if (isGroup && (!name  !participantIds  !Array.isArray(participantIds) || participantIds.length === 0)) {
+      if (isGroup && (!name || !participantIds || !Array.isArray(participantIds) || participantIds.length === 0)) {
         return res.status(400).json({ message: 'Group name and participants are required' });
       }
 
