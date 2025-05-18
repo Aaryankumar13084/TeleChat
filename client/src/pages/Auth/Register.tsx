@@ -54,10 +54,7 @@ export default function Register() {
   const onSubmit = async (data: RegisterValues) => {
     setIsLoading(true);
     try {
-      // Remove confirmPassword before sending to API
-      const { confirmPassword, ...userData } = data;
-      
-      await register(userData);
+      await register(data);
       toast({
         title: 'Registration successful',
         description: 'Your account has been created successfully!',
