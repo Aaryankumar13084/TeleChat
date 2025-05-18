@@ -1,0 +1,17 @@
+[build]
+builder = "NIXPACKS"
+nixpacksVersion = "1.15.0"
+nixpacksAppType = "node"
+
+[deploy]
+startCommand = "npm run start"
+healthcheckPath = "/"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+[vars]
+NODE_ENV = "production"
+
+[[services]]
+name = "telechat"

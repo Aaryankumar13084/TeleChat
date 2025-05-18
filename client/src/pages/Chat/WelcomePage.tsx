@@ -20,36 +20,53 @@ export function WelcomePage({ onConversationSelect, selectedUserId }: WelcomePag
   const { user } = useAuth();
   const [recentUsers, setRecentUsers] = useState<any[]>([]);
   
-  // Log and extract users from conversations
+  // Load the conversation data and extract recent contacts
   useEffect(() => {
-    if (!user) return;
-    console.log("Conversations data:", conversations);
-    
-    if (!conversations || !Array.isArray(conversations)) {
-      console.log("No conversations data available");
-      return;
-    }
-    
-    try {
-      // Process and extract users from all conversations
-      const users = [];
+    const fetchConversations = async () => {
+      if (!user) return;
       
-      for (const conv of conversations) {
-        // For direct conversations, get the other user
-        if (!conv.isGroup) {
-          // Get the other user from the conversation
-          // In MongoDB data structure, otherUser is directly included in the conversation
-          if (conv.otherUser) {
-            users.push({
-              ...conv.otherUser,
-              lastMessageTime: conv.lastMessage?.sentAt || new Date(),
-              lastMessageContent: conv.lastMessage?.content || "Start a conversation",
-              conversationId: conv.id
-            });
-          } else {
-            // Alternative way to get the other user from participants
-            const otherParticipant = conv.participants?.find(
-              p => p.userId !== user.id && p.user
+      try {
+        // Make a direct API call to get conversations since the hook isn't working properly
+        const token = localStorage.getItem('token');
+        
+        if (!token) {
+          console.error("No authentication token available");
+          return;
+        }
+        
+        const response = await fetch(`${window.location.origin}/api/conversations`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch conversations: ${response.status}`);
+        }
+        
+        const conversationsData = await response.json();
+        console.log("Fetched conversations directly:", conversationsData);
+        
+        // Process the conversations to extract users
+        const users = [];
+        
+        // Skip if no conversations
+        if (!Array.isArray(conversationsData) || conversationsData.length === 0) {
+          console.log("No conversations available from direct fetch");
+          return;
+        }
+        
+        for (const conv of conversationsData) {
+          // Skip group conversations
+          if (conv.isGroup) continue;
+          
+          // Check for participants
+          if (Array.isArray(conv.participants)) {
+            // Get other user from participants (not current user)
+            const otherParticipant = conv.participants.find(p => 
+              p.userId !== user.id && p.user
             );
             
             if (otherParticipant?.user) {
@@ -62,21 +79,26 @@ export function WelcomePage({ onConversationSelect, selectedUserId }: WelcomePag
             }
           }
         }
+        
+        // Sort by most recent message
+        const sortedUsers = users.sort((a, b) => {
+          const aTime = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
+          const bTime = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
+          return bTime - aTime; // Most recent first
+        });
+        
+        console.log("Processed recent contacts:", sortedUsers);
+        setRecentUsers(sortedUsers);
+        
+        // Also refresh the conversations data
+        refetch();
+      } catch (error) {
+        console.error("Error fetching conversations:", error);
       }
-      
-      // Sort by most recent message time
-      const sortedUsers = users.sort((a, b) => {
-        const aTime = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
-        const bTime = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
-        return bTime - aTime; // Most recent first
-      });
-      
-      console.log("Processed recent users:", sortedUsers);
-      setRecentUsers(sortedUsers);
-    } catch (error) {
-      console.error("Error processing conversations:", error);
-    }
-  }, [conversations, user]);
+    };
+    
+    fetchConversations();
+  }, [user]);
 
   const handleStartChat = async (userId: string) => {
     try {
