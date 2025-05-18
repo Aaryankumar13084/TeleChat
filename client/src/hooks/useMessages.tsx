@@ -3,7 +3,7 @@ import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useAuth } from './useAuth';
 import { InsertMessage } from '@shared/schema';
 
-export const useMessages = (conversationId?: number) => {
+export const useMessages = (conversationId?: number | string) => {
   const { token } = useAuth();
   
   // Get messages for a conversation
