@@ -20,31 +20,62 @@ export function WelcomePage({ onConversationSelect, selectedUserId }: WelcomePag
   const { user } = useAuth();
   const [recentUsers, setRecentUsers] = useState<any[]>([]);
   
-  // Extract users from conversations and sort by most recent message time
+  // Log and extract users from conversations
   useEffect(() => {
-    if (!user || !conversations || !Array.isArray(conversations)) return;
+    if (!user) return;
+    console.log("Conversations data:", conversations);
     
-    // Get all direct conversations with their last message
-    const directConversations = conversations
-      .filter(c => !c.isGroup && c.otherUser)
-      .filter(c => c.lastMessage); // Only include conversations with messages
+    if (!conversations || !Array.isArray(conversations)) {
+      console.log("No conversations data available");
+      return;
+    }
     
-    // Create an array of users from conversations, sorted by message timestamp
-    const sortedConversations = [...directConversations].sort((a, b) => {
-      const aTime = a.lastMessage?.sentAt ? new Date(a.lastMessage.sentAt).getTime() : 0;
-      const bTime = b.lastMessage?.sentAt ? new Date(b.lastMessage.sentAt).getTime() : 0;
-      return bTime - aTime; // Sort by latest message first
-    });
-    
-    // Map to just the other users
-    const users = sortedConversations.map(conv => ({
-      ...conv.otherUser,
-      lastMessageTime: conv.lastMessage?.sentAt,
-      lastMessageContent: conv.lastMessage?.content,
-      conversationId: conv.id
-    }));
-    
-    setRecentUsers(users);
+    try {
+      // Process and extract users from all conversations
+      const users = [];
+      
+      for (const conv of conversations) {
+        // For direct conversations, get the other user
+        if (!conv.isGroup) {
+          // Get the other user from the conversation
+          // In MongoDB data structure, otherUser is directly included in the conversation
+          if (conv.otherUser) {
+            users.push({
+              ...conv.otherUser,
+              lastMessageTime: conv.lastMessage?.sentAt || new Date(),
+              lastMessageContent: conv.lastMessage?.content || "Start a conversation",
+              conversationId: conv.id
+            });
+          } else {
+            // Alternative way to get the other user from participants
+            const otherParticipant = conv.participants?.find(
+              p => p.userId !== user.id && p.user
+            );
+            
+            if (otherParticipant?.user) {
+              users.push({
+                ...otherParticipant.user,
+                lastMessageTime: conv.lastMessage?.sentAt || new Date(),
+                lastMessageContent: conv.lastMessage?.content || "Start a conversation",
+                conversationId: conv.id
+              });
+            }
+          }
+        }
+      }
+      
+      // Sort by most recent message time
+      const sortedUsers = users.sort((a, b) => {
+        const aTime = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
+        const bTime = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
+        return bTime - aTime; // Most recent first
+      });
+      
+      console.log("Processed recent users:", sortedUsers);
+      setRecentUsers(sortedUsers);
+    } catch (error) {
+      console.error("Error processing conversations:", error);
+    }
   }, [conversations, user]);
 
   const handleStartChat = async (userId: string) => {
