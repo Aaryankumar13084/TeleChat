@@ -62,7 +62,7 @@ export function UserSearchModal({ isOpen, onClose, onUserSelect }: UserSearchMod
     enabled: shouldSearch && !!token,
   });
   
-  const handleUserSelect = async (userId: string) => {
+  const handleUserSelect = async (userId: string | number) => {
     try {
       console.log('Selecting user with ID:', userId);
       // Create or get a direct conversation with this user

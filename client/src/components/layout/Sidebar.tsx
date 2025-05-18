@@ -29,15 +29,17 @@ export function Sidebar({
   const [showUserSearch, setShowUserSearch] = useState(false);
   
   // Filter conversations based on search query
-  const filteredConversations = conversations?.filter(conversation => {
-    const searchIn = conversation.isGroup
-      ? conversation.name?.toLowerCase()
-      : conversation.otherUser?.displayName?.toLowerCase() || 
-        conversation.otherUser?.username?.toLowerCase();
-    
-    return !searchQuery || 
-      searchIn?.includes(searchQuery.toLowerCase());
-  });
+  const filteredConversations = Array.isArray(conversations) 
+    ? conversations.filter(conversation => {
+        const searchIn = conversation.isGroup
+          ? conversation.name?.toLowerCase()
+          : conversation.otherUser?.displayName?.toLowerCase() || 
+            conversation.otherUser?.username?.toLowerCase();
+        
+        return !searchQuery || 
+          searchIn?.includes(searchQuery.toLowerCase());
+      })
+    : [];
   
   // Sort conversations by last message time (newest first)
   const sortedConversations = [...(filteredConversations || [])].sort((a, b) => {

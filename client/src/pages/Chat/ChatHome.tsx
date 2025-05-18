@@ -23,14 +23,14 @@ export default function ChatHome() {
   
   // When conversations load, select the first one by default
   useEffect(() => {
-    if (conversations && conversations.length > 0 && !selectedConversation) {
+    if (conversations && Array.isArray(conversations) && conversations.length > 0 && !selectedConversation) {
       setSelectedConversation(conversations[0]);
     }
   }, [conversations, selectedConversation]);
   
   // Effect to update selected conversation if it changes in the list
   useEffect(() => {
-    if (selectedConversation && conversations) {
+    if (selectedConversation && conversations && Array.isArray(conversations)) {
       const updatedConversation = conversations.find(
         (conv) => String(conv.id) === String(selectedConversation.id)
       );
