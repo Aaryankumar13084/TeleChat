@@ -75,8 +75,8 @@ export function UserSearchModal({ isOpen, onClose, onUserSelect }: UserSearchMod
     try {
       console.log('Selecting user with ID:', userId);
       // Create or get a direct conversation with this user
-      const idStr = typeof userId === 'string' ? userId : String(userId);
-      const response = await apiRequest('POST', `/api/conversations/direct/${idStr}`);
+      const userIdString = typeof userId === 'string' ? userId : String(userId);
+      const response = await apiRequest('POST', `/api/conversations/direct/${userIdString}`);
       
       if (!response.ok) {
         throw new Error(`${response.status}: ${await response.text()}`);
@@ -87,7 +87,7 @@ export function UserSearchModal({ isOpen, onClose, onUserSelect }: UserSearchMod
       
       // Close modal and pass the conversation to parent
       onClose();
-      onUserSelect(userId);
+      onUserSelect(userIdString);
       
       toast({
         title: 'Conversation created',
