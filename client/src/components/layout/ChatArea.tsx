@@ -23,8 +23,8 @@ interface ChatAreaProps {
 
 export function ChatArea({ conversation, onMenuToggle }: ChatAreaProps) {
   const { user } = useAuth();
-  const { messages, sendMessage, isLoading } = useMessages(conversation?.id);
-  const { sendTypingIndicator } = useWebSocket();
+  const { messages, sendMessage, isLoading, deleteMessage } = useMessages(conversation?.id);
+  const { sendTypingIndicator, sendDeleteMessage } = useWebSocket();
   // Safe empty default to avoid undefined errors
   const [typingUsers, setTypingUsers] = useState<Record<string, Record<string, boolean>>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -391,7 +391,11 @@ export function ChatArea({ conversation, onMenuToggle }: ChatAreaProps) {
                     onDeleteMessage={(messageId) => {
                       // Call the delete message function from useMessages
                       if (conversation?.id) {
+                        // Delete via REST API
                         deleteMessage(messageId);
+                        
+                        // Also notify other clients via WebSocket for real-time updates
+                        sendDeleteMessage(messageId, conversation.id);
                       }
                     }}
                   />
