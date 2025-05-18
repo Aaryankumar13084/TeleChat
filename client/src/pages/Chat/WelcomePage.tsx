@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { UserSearchModal } from '@/components/modals/UserSearchModal';
 import { useConversations } from '@/hooks/useConversations';
 import { UserProfilePage } from './UserProfilePage';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MessageSquare, Users } from 'lucide-react';
+import { MessageSquare, Users, Clock } from 'lucide-react';
+import { UserAvatar } from '@/components/common/UserAvatar';
+import { useAuth } from '@/hooks/useAuth';
 
 interface WelcomePageProps {
   onConversationSelect: (conversation: any) => void;
@@ -14,7 +16,36 @@ interface WelcomePageProps {
 export function WelcomePage({ onConversationSelect, selectedUserId }: WelcomePageProps) {
   const [showUserSearch, setShowUserSearch] = useState(false);
   const [activeTab, setActiveTab] = useState<string>(selectedUserId ? 'profile' : 'welcome');
-  const { refetch } = useConversations();
+  const { conversations, refetch } = useConversations();
+  const { user } = useAuth();
+  const [recentUsers, setRecentUsers] = useState<any[]>([]);
+  
+  // Extract users from conversations and sort by most recent message time
+  useEffect(() => {
+    if (!user || !conversations || !Array.isArray(conversations)) return;
+    
+    // Get all direct conversations with their last message
+    const directConversations = conversations
+      .filter(c => !c.isGroup && c.otherUser)
+      .filter(c => c.lastMessage); // Only include conversations with messages
+    
+    // Create an array of users from conversations, sorted by message timestamp
+    const sortedConversations = [...directConversations].sort((a, b) => {
+      const aTime = a.lastMessage?.sentAt ? new Date(a.lastMessage.sentAt).getTime() : 0;
+      const bTime = b.lastMessage?.sentAt ? new Date(b.lastMessage.sentAt).getTime() : 0;
+      return bTime - aTime; // Sort by latest message first
+    });
+    
+    // Map to just the other users
+    const users = sortedConversations.map(conv => ({
+      ...conv.otherUser,
+      lastMessageTime: conv.lastMessage?.sentAt,
+      lastMessageContent: conv.lastMessage?.content,
+      conversationId: conv.id
+    }));
+    
+    setRecentUsers(users);
+  }, [conversations, user]);
 
   const handleStartChat = async (userId: string) => {
     try {
@@ -62,10 +93,14 @@ export function WelcomePage({ onConversationSelect, selectedUserId }: WelcomePag
         onValueChange={setActiveTab}
         className="w-full max-w-3xl mx-auto mt-8"
       >
-        <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8">
+        <TabsList className="grid w-full max-w-md mx-auto grid-cols-3 mb-8">
           <TabsTrigger value="welcome" className="flex items-center">
             <MessageSquare className="w-4 h-4 mr-2" />
             <span>New Chat</span>
+          </TabsTrigger>
+          <TabsTrigger value="recent" className="flex items-center">
+            <Clock className="w-4 h-4 mr-2" />
+            <span>Recent</span>
           </TabsTrigger>
           <TabsTrigger value="users" className="flex items-center">
             <Users className="w-4 h-4 mr-2" />
@@ -89,6 +124,62 @@ export function WelcomePage({ onConversationSelect, selectedUserId }: WelcomePag
           >
             Find someone to chat with
           </Button>
+        </TabsContent>
+        
+        <TabsContent value="recent" className="p-6">
+          <h2 className="text-xl font-semibold text-center mb-6">Recent Contacts</h2>
+          
+          {recentUsers.length > 0 ? (
+            <div className="space-y-4">
+              {recentUsers.map(user => (
+                <div 
+                  key={user.id}
+                  className="flex items-center p-3 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+                  onClick={() => handleStartChat(user.id.toString())}
+                >
+                  <UserAvatar 
+                    user={user} 
+                    showStatus={true}
+                    size="md" 
+                  />
+                  <div className="ml-3 flex-1">
+                    <div>
+                      <h3 className="font-medium">{user.displayName || user.username}</h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-1">
+                        {user.lastMessageContent ? 
+                          (user.lastMessageContent.length > 25 ? 
+                            `${user.lastMessageContent.substring(0, 25)}...` : 
+                            user.lastMessageContent) : 
+                          'No messages yet'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {user.lastMessageTime ? 
+                        new Date(user.lastMessageTime).toLocaleDateString(undefined, { 
+                          month: 'short', 
+                          day: 'numeric' 
+                        }) : ''}
+                    </span>
+                    {user.isOnline && (
+                      <span className="inline-block w-2 h-2 bg-green-500 rounded-full mt-1"></span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-10">
+              <p className="text-gray-500 dark:text-gray-400">No recent conversations</p>
+              <Button 
+                className="mt-4"
+                onClick={() => setActiveTab('users')}
+              >
+                Find someone to chat with
+              </Button>
+            </div>
+          )}
         </TabsContent>
         
         <TabsContent value="users" className="p-6">
