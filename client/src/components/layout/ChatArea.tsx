@@ -20,7 +20,9 @@ interface ChatAreaProps {
 export function ChatArea({ conversation, onMenuToggle }: ChatAreaProps) {
   const { user } = useAuth();
   const { messages, sendMessage, isLoading } = useMessages(conversation?.id);
-  const { sendTypingIndicator, typingUsers } = useWebSocket();
+  const { sendTypingIndicator } = useWebSocket();
+  // Safe empty default to avoid undefined errors
+  const [typingUsers, setTypingUsers] = useState<Record<string, Record<string, boolean>>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showImagePreview, setShowImagePreview] = useState(false);
   const [previewImage, setPreviewImage] = useState('');
@@ -113,13 +115,24 @@ export function ChatArea({ conversation, onMenuToggle }: ChatAreaProps) {
   
   // Check if there's a user typing
   const isTyping = () => {
-    if (!conversation?.id) return false;
-    
-    const convId = getIdAsString(conversation.id);
-    if (!typingUsers[convId]) return false;
-    
-    return Object.entries(typingUsers[convId])
-      .some(([userId, isTyping]) => !isSameId(userId, user?.id) && isTyping);
+    try {
+      if (!conversation?.id) return false;
+      
+      // Get the conversation ID as a string
+      const convId = getIdAsString(conversation.id);
+      
+      // Using optional chaining and nullish coalescing to prevent errors
+      const conversationTyping = typingUsers?.[convId] ?? {}; 
+      
+      return Object.entries(conversationTyping)
+        .some(([userId, isTyping]) => {
+          if (!userId || !user?.id) return false;
+          return !isSameId(userId, user.id) && !!isTyping;
+        });
+    } catch (error) {
+      console.error('Error checking typing status:', error);
+      return false; // Safely handle any errors
+    }
   };
   
   // Render typing indicator
@@ -128,20 +141,32 @@ export function ChatArea({ conversation, onMenuToggle }: ChatAreaProps) {
     
     let typingUser = null;
     
-    if (!conversation?.isGroup) {
-      typingUser = conversation?.otherUser;
-    } else {
-      // Find the first typing user
-      const convId = getIdAsString(conversation.id);
-      const typingUserId = Object.entries(typingUsers[convId])
-        .find(([userId, isTyping]) => !isSameId(userId, user?.id) && isTyping)?.[0];
-      
-      if (typingUserId) {
-        const participant = conversation.participants?.find(
-          (p: any) => isSameId(p.userId, typingUserId)
-        );
-        typingUser = participant?.user;
+    try {
+      if (!conversation?.isGroup) {
+        typingUser = conversation?.otherUser;
+      } else {
+        // Find the first typing user
+        const convId = getIdAsString(conversation.id);
+        const conversationTyping = typingUsers?.[convId] ?? {};
+        
+        const typingEntry = Object.entries(conversationTyping)
+          .find(([userId, isTyping]) => {
+            if (!userId || !user?.id) return false;
+            return !isSameId(userId, user.id) && !!isTyping;
+          });
+        
+        const typingUserId = typingEntry?.[0];
+        
+        if (typingUserId && conversation.participants) {
+          const participant = conversation.participants.find(
+            (p: any) => p && p.userId && isSameId(p.userId, typingUserId)
+          );
+          typingUser = participant?.user;
+        }
       }
+    } catch (error) {
+      console.error('Error rendering typing indicator:', error);
+      return null; // Safely handle any errors
     }
     
     if (!typingUser) return null;

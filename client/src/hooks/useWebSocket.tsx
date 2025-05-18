@@ -28,7 +28,7 @@ export const useWebSocket = (options: WebSocketOptions = {}) => {
     setIsConnecting(true);
     
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    const wsUrl = `${protocol}//${window.location.host}/chat-ws`;
     
     socket.current = new WebSocket(wsUrl);
     
