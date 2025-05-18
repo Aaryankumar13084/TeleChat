@@ -8,10 +8,11 @@ import { Button } from '@/components/ui/button';
 import { useConversations } from '@/hooks/useConversations';
 import { useDarkMode } from '@/hooks/use-mobile';
 import { UserSearchModal } from '@/components/modals/UserSearchModal';
+import { EntityId } from '@/types/mongodb';
 
 interface SidebarProps {
   onConversationSelect: (conversation: any) => void;
-  selectedConversationId?: number | string;
+  selectedConversationId?: EntityId;
   isMobile?: boolean;
   onClose?: () => void;
 }

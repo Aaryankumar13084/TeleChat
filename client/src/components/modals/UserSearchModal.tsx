@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { EntityId, getIdAsString } from '@/types/mongodb';
 
 import {
   Dialog,
@@ -62,11 +63,11 @@ export function UserSearchModal({ isOpen, onClose, onUserSelect }: UserSearchMod
     enabled: shouldSearch && !!token,
   });
   
-  const handleUserSelect = async (userId: string | number) => {
+  const handleUserSelect = async (userId: EntityId) => {
     try {
       console.log('Selecting user with ID:', userId);
       // Create or get a direct conversation with this user
-      const response = await fetch(`/api/conversations/direct/${userId}`, {
+      const response = await fetch(`/api/conversations/direct/${getIdAsString(userId)}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

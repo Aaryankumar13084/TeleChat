@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useConversations } from '@/hooks/useConversations';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useMobile } from '@/hooks/use-mobile';
+import { isSameId } from '@/types/mongodb';
 
 export default function ChatHome() {
   const { user, logout } = useAuth();
@@ -32,7 +33,7 @@ export default function ChatHome() {
   useEffect(() => {
     if (selectedConversation && conversations && Array.isArray(conversations)) {
       const updatedConversation = conversations.find(
-        (conv) => String(conv.id) === String(selectedConversation.id)
+        (conv) => isSameId(conv.id, selectedConversation.id)
       );
       if (updatedConversation) {
         setSelectedConversation(updatedConversation);

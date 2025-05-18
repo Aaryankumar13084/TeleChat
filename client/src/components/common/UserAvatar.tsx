@@ -1,8 +1,12 @@
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { User } from "@shared/schema";
+import { EntityId } from "@/types/mongodb";
+
+// Modified User type that accepts either string or number ID
+type FlexibleUser = Omit<User, 'id'> & { id: EntityId };
 
 interface UserAvatarProps {
-  user?: Partial<User>;
+  user?: Partial<FlexibleUser>;
   showStatus?: boolean;
   size?: "sm" | "md" | "lg" | "xl";
   className?: string;

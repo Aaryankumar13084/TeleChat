@@ -3,6 +3,7 @@ import { CheckCheck } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { UserAvatar } from './UserAvatar';
 import { AvatarGroup } from '@/components/ui/avatar-group';
+import { EntityId, isSameId } from '@/types/mongodb';
 
 interface ConversationItemProps {
   conversation: any; // Simplified for brevity
