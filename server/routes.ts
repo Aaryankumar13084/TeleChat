@@ -17,31 +17,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   console.log('[websocket] WebSocket server initialized');
   
   // Authentication endpoints
+  // Authentication endpoints
   app.post('/api/auth/register', async (req: Request, res: Response) => {
     try {
       const data = insertUserSchema.extend({
         confirmPassword: z.string()
       }).parse(req.body);
-      
+
       // Check if passwords match
       if (data.password !== data.confirmPassword) {
         return res.status(400).json({ message: 'Passwords do not match' });
       }
-      
+
       // Check if user already exists
       const existingUserByUsername = await storage.getUserByUsername(data.username);
       if (existingUserByUsername) {
         return res.status(400).json({ message: 'Username already taken' });
       }
-      
+
       const existingUserByEmail = await storage.getUserByEmail(data.email);
       if (existingUserByEmail) {
         return res.status(400).json({ message: 'Email already in use' });
       }
-      
+
       // Hash password
       const hashedPassword = await hashPassword(data.password);
-      
+
       // Create user
       const user = await storage.createUser({
         ...data,
@@ -49,58 +50,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
         isOnline: true,
         lastSeen: new Date()
       });
-      
+
       // Create token
       const token = createToken(user);
-      
+
       // Return user data and token
       const { password, ...userWithoutPassword } = user;
-      
+
       res.status(201).json({ user: userWithoutPassword, token });
     } catch (error) {
       res.status(500).json({ message: 'Server error' });
     }
   });
-  
+
   app.post('/api/auth/login', async (req: Request, res: Response) => {
     try {
       const { username, password } = req.body;
-      
+
       // Check if username and password are provided
       if (!username || !password) {
         return res.status(400).json({ message: 'Username and password are required' });
       }
-      
+
       // Get user by username
       const user = await storage.getUserByUsername(username);
-      
+
       // Check if user exists
       if (!user) {
         return res.status(401).json({ message: 'Invalid credentials' });
       }
-      
+
       // Verify password
       const isPasswordValid = await verifyPassword(password, user.password);
-      
+
       if (!isPasswordValid) {
         return res.status(401).json({ message: 'Invalid credentials' });
       }
-      
+
       // Update user online status
       await storage.updateUser(user.id, { isOnline: true, lastSeen: new Date() });
-      
+
       // Create token
       const token = createToken(user);
-      
+
       // Return user data and token
       const { password: _, ...userWithoutPassword } = user;
-      
+
       res.json({ user: userWithoutPassword, token });
     } catch (error) {
       res.status(500).json({ message: 'Server error' });
     }
   });
-  
+
   // User endpoints
   app.get('/api/users/me', authMiddleware, async (req: Request, res: Response) => {
     try {
