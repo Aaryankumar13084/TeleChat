@@ -56,3 +56,21 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
 }
+
+/* Custom styles for message input and button */
+.message-input {
+  background-color: hsl(0, 0%, 95%) !important; 
+  color: hsl(0, 0%, 20%) !important;
+  border: none !important;
+}
+
+.dark .message-input {
+  background-color: hsl(240, 3.7%, 15.9%) !important;
+  color: hsl(0, 0%, 98%) !important;
+}
+
+/* Send button specific style to fix black box */
+.send-button {
+  background-color: hsl(207, 90%, 54%) !important;
+  color: white !important;
+}

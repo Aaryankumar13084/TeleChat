@@ -1,10 +1,11 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { Server } from 'http';
-import { WSMessage } from '@shared/schema';
+import { WSMessage, Message } from '@shared/schema';
 import { log } from './vite';
 import { storage } from './storage';
 import { getAuthUser } from './auth';
 import { Request } from 'express';
+import mongoose from 'mongoose';
 
 interface Client {
   userId: number | string;
@@ -86,7 +87,7 @@ export class ChatWebSocketServer {
     log('WebSocket server initialized', 'websocket');
   }
   
-  private async handleMessage(ws: WebSocket, message: WSMessage, userId: number | null): Promise<void> {
+  private async handleMessage(ws: WebSocket, message: WSMessage, userId: number | string | null): Promise<void> {
     if (!userId) {
       ws.send(JSON.stringify({
         type: 'error',
@@ -116,19 +117,31 @@ export class ChatWebSocketServer {
     }
   }
   
-  private async handleChatMessage(payload: any, userId: number | null): Promise<void> {
+  private async handleChatMessage(payload: any, userId: number | string | null): Promise<void> {
     if (!userId || !payload.conversationId) return;
     
     try {
-      // Create new message in storage
-      const message = await storage.createMessage({
-        conversationId: payload.conversationId,
-        userId,
+      // Log for debugging
+      log(`Creating message from user ${userId} in conversation ${payload.conversationId}`, 'websocket');
+      
+      // Convert conversation and user IDs to match MongoDB expected format
+      const convId = typeof payload.conversationId === 'string' && mongoose.Types.ObjectId.isValid(payload.conversationId) ? 
+        payload.conversationId : payload.conversationId;
+      
+      const senderId = typeof userId === 'string' && mongoose.Types.ObjectId.isValid(userId) ? 
+        userId : userId;
+      
+      // Create new message in storage with the proper status field
+      const messageData: any = {
+        conversationId: convId,
+        userId: senderId,
         content: payload.content || null,
         mediaUrl: payload.mediaUrl || null,
         mediaType: payload.mediaType || null,
         status: 'sent'
-      });
+      };
+      
+      const message = await storage.createMessage(messageData);
       
       // Get all participants in the conversation
       const participants = await storage.getParticipantsByConversationId(payload.conversationId);
