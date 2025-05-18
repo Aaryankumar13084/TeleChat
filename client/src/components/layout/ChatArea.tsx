@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 import { format } from 'date-fns';
-import { Phone, Video, Search, MoreVertical, Menu } from 'lucide-react';
+import { Phone, Video, Search, MoreVertical, Menu, Settings, UserCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import { MessageBubble } from '@/components/common/MessageBubble';
@@ -10,6 +10,10 @@ import { useMessages } from '@/hooks/useMessages';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { ImagePreviewModal } from '@/components/modals/ImagePreviewModal';
 import { ProfileModal } from '@/components/modals/ProfileModal';
+import { CallModal } from '@/components/modals/CallModal';
+import { ProfileEditModal } from '@/components/modals/ProfileEditModal';
+import { AppSettingsModal } from '@/components/modals/AppSettingsModal';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { EntityId, isSameId, getIdAsString } from '@/types/mongodb';
 
 interface ChatAreaProps {
@@ -28,6 +32,12 @@ export function ChatArea({ conversation, onMenuToggle }: ChatAreaProps) {
   const [previewImage, setPreviewImage] = useState('');
   const [showProfile, setShowProfile] = useState(false);
   const [profileUser, setProfileUser] = useState<any>(null);
+  
+  // New modal states for calling, profile editing, and settings
+  const [showVoiceCall, setShowVoiceCall] = useState(false);
+  const [showVideoCall, setShowVideoCall] = useState(false);
+  const [showProfileEdit, setShowProfileEdit] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -291,21 +301,57 @@ export function ChatArea({ conversation, onMenuToggle }: ChatAreaProps) {
         </div>
         
         <div className="flex space-x-3">
-          <Button variant="ghost" size="icon" className="text-gray-500 dark:text-gray-400">
+          {/* Voice call button */}
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="text-gray-500 dark:text-gray-400"
+            onClick={() => {
+              if (!conversation.isGroup && conversation.otherUser) {
+                setShowVoiceCall(true);
+              }
+            }}
+          >
             <Phone className="h-5 w-5" />
           </Button>
           
-          <Button variant="ghost" size="icon" className="text-gray-500 dark:text-gray-400">
+          {/* Video call button */}
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="text-gray-500 dark:text-gray-400"
+            onClick={() => {
+              if (!conversation.isGroup && conversation.otherUser) {
+                setShowVideoCall(true);
+              }
+            }}
+          >
             <Video className="h-5 w-5" />
           </Button>
           
+          {/* Search button */}
           <Button variant="ghost" size="icon" className="text-gray-500 dark:text-gray-400">
             <Search className="h-5 w-5" />
           </Button>
           
-          <Button variant="ghost" size="icon" className="text-gray-500 dark:text-gray-400">
-            <MoreVertical className="h-5 w-5" />
-          </Button>
+          {/* More options menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="text-gray-500 dark:text-gray-400">
+                <MoreVertical className="h-5 w-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setShowProfileEdit(true)}>
+                <UserCircle className="mr-2 h-4 w-4" />
+                Edit Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowSettings(true)}>
+                <Settings className="mr-2 h-4 w-4" />
+                App Settings
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
       
@@ -381,6 +427,34 @@ export function ChatArea({ conversation, onMenuToggle }: ChatAreaProps) {
         isOpen={showProfile}
         user={profileUser}
         onClose={() => setShowProfile(false)}
+      />
+      
+      {/* Voice call modal */}
+      <CallModal 
+        isOpen={showVoiceCall}
+        user={conversation?.otherUser}
+        onClose={() => setShowVoiceCall(false)}
+        isVideoCall={false}
+      />
+      
+      {/* Video call modal */}
+      <CallModal 
+        isOpen={showVideoCall}
+        user={conversation?.otherUser}
+        onClose={() => setShowVideoCall(false)}
+        isVideoCall={true}
+      />
+      
+      {/* Profile edit modal */}
+      <ProfileEditModal 
+        isOpen={showProfileEdit}
+        onClose={() => setShowProfileEdit(false)}
+      />
+      
+      {/* App settings modal */}
+      <AppSettingsModal 
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
       />
     </div>
   );
