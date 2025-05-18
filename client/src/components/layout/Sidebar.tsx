@@ -55,7 +55,10 @@ export function Sidebar({
       <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
         <div className="flex items-center">
           <UserAvatar 
-            user={user} 
+            user={user ? {
+              ...user,
+              id: user.id // Passing ID as is, our updated UserAvatar can handle both string and number IDs
+            } : undefined}
             showStatus={true} 
             size="md"
           />

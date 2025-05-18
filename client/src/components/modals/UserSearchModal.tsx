@@ -67,7 +67,8 @@ export function UserSearchModal({ isOpen, onClose, onUserSelect }: UserSearchMod
     try {
       console.log('Selecting user with ID:', userId);
       // Create or get a direct conversation with this user
-      const response = await fetch(`/api/conversations/direct/${getIdAsString(userId)}`, {
+      const idStr = typeof userId === 'string' ? userId : String(userId);
+      const response = await fetch(`/api/conversations/direct/${idStr}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -152,7 +153,7 @@ export function UserSearchModal({ isOpen, onClose, onUserSelect }: UserSearchMod
                   <Button 
                     size="sm" 
                     variant="ghost" 
-                    onClick={() => handleUserSelect(user.id)}
+                    onClick={() => handleUserSelect(user.id as EntityId)}
                     className="ml-2"
                   >
                     <UserPlus className="h-4 w-4 mr-1" />
