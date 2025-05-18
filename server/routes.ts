@@ -180,7 +180,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { name, isGroup, participantIds } = req.body;
 
-      if (isGroup && (!name || !participantIds || !Array.isArray(participantIds) || participantIds.length === 0)) {
+      if (isGroup && (!name  !participantIds  !Array.isArray(participantIds) || participantIds.length === 0)) {
         return res.status(400).json({ message: 'Group name and participants are required' });
       }
 
@@ -263,420 +263,422 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get participants
-      const participants = await storage.getParticipantsByConversationId(conversationId);
+          const participants = await storage.getParticipantsByConversationId(conversationId);
 
-      // Get messages
-      const messages = await storage.getMessagesByConversationId(conversationId);
+          // Get messages
+          const messages = await storage.getMessagesByConversationId(conversationId);
 
-      res.json({
-        ...conversation,
-        participants,
-        messages
+          res.json({
+            ...conversation,
+            participants,
+            messages
+          });
+        } catch (error) {
+          res.status(500).json({ message: 'Server error' });
+        }
       });
-    } catch (error) {
-      res.status(500).json({ message: 'Server error' });
-    }
-  });
 
-  // Direct one-to-one conversation endpoint
-  app.post('/api/conversations/direct/:userId', authMiddleware, async (req: Request, res: Response) => {
-    try {
-      const user = getAuthUser(req);
-
-      if (!user) {
-        return res.status(401).json({ message: 'Authentication required' });
-      }
-
-      // With MongoDB we need to use proper ObjectId
-      const userId = req.params.userId;
-      console.log('Creating direct conversation between', user.id, 'and', userId);
-
-      if (process.env.MONGODB_URI) {
-        // If using MongoDB
+      // Direct one-to-one conversation endpoint
+      app.post('/api/conversations/direct/:userId', authMiddleware, async (req: Request, res: Response) => {
         try {
-          const { UserModel } = await import('./models/User');
-          const mongoose = await import('mongoose');
+          const user = getAuthUser(req);
 
-          // Check if the user ID is a valid MongoDB ObjectId
-          if (!mongoose.Types.ObjectId.isValid(userId)) {
-            console.log('Invalid ObjectId format:', userId);
-            return res.status(400).json({ message: 'Invalid user ID format' });
+          if (!user) {
+            return res.status(401).json({ message: 'Authentication required' });
           }
 
-          // Find the other user by ObjectId
-          const otherUser = await UserModel.findById(userId);
+          // With MongoDB we need to use proper ObjectId
+          const userId = req.params.userId;
+          console.log('Creating direct conversation between', user.id, 'and', userId);
 
-          if (!otherUser) {
-            console.log('User not found with ID:', userId);
-            return res.status(404).json({ message: 'User not found' });
-          }
+          if (process.env.MONGODB_URI) {
+            // If using MongoDB
+            try {
+              const { UserModel } = await import('./models/User');
+              const mongoose = await import('mongoose');
 
-          console.log('Found user:', otherUser.username);
-
-          // Check if conversation already exists
-          const { ConversationModel } = await import('./models/Conversation');
-          const { ParticipantModel } = await import('./models/Participant');
-
-          // Find conversations where both users are participants
-          const userConversations = await ParticipantModel.find({ 
-            userId: user.id 
-          }).select('conversationId');
-
-          const userConversationIds = userConversations.map(p => p.conversationId);
-
-          const sharedConversations = await ParticipantModel.find({
-            userId: otherUser.id,
-            conversationId: { $in: userConversationIds }
-          }).populate('conversationId');
-
-          // Filter to find direct (non-group) conversations
-          let existingConversation = null;
-          for (const participant of sharedConversations) {
-            const conv = participant.conversationId;
-            if (!conv.isGroup) {
-              existingConversation = conv;
-              break;
-            }
-          }
-
-          if (existingConversation) {
-            console.log('Found existing conversation:', existingConversation.id);
-            return res.json(existingConversation);
-          }
-
-          // Create new conversation
-          const newConversation = new ConversationModel({
-            isGroup: false,
-            name: null,
-            avatarUrl: null,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            lastMessageId: null
-          });
-
-          await newConversation.save();
-          console.log('Created new conversation:', newConversation.id);
-
-          // Add participants
-          const participant1 = new ParticipantModel({
-            userId: user.id,
-            conversationId: newConversation.id,
-            isAdmin: false,
-            joinedAt: new Date()
-          });
-
-          const participant2 = new ParticipantModel({
-            userId: otherUser.id,
-            conversationId: newConversation.id,
-            isAdmin: false,
-            joinedAt: new Date()
-          });
-
-          await Promise.all([participant1.save(), participant2.save()]);
-          console.log('Added participants');
-
-          return res.status(201).json(newConversation);
-        } catch (dbError) {
-          console.error('MongoDB error creating direct conversation:', dbError);
-          throw dbError;
-        }
-      } else {
-        // For in-memory storage, continue with parseInt
-        const otherUserId = parseInt(userId);
-
-        // Check if other user exists
-        const otherUser = await storage.getUser(otherUserId);
-
-        if (!otherUser) {
-          return res.status(404).json({ message: 'User not found' });
-        }
-
-        // Find or create one-to-one conversation
-        const conversation = await storage.findOrCreateOneToOneConversation(user.id, otherUserId);
-
-        // Get participants
-        const participants = await storage.getParticipantsByConversationId(conversation.id);
-
-        // Get last message
-        const messages = await storage.getMessagesByConversationId(conversation.id);
-
-        return res.json({
-          ...conversation,
-          participants,
-          messages
-        });
-      }
-    } catch (error) {
-      console.error('Error creating direct conversation:', error);
-      res.status(500).json({ message: 'Server error' });
-    }
-  });
-
-  // Message endpoints
-  app.post('/api/messages', authMiddleware, async (req: Request, res: Response) => {
-    try {
-      const user = getAuthUser(req);
-
-      if (!user) {
-        return res.status(401).json({ message: 'Authentication required' });
-      }
-
-      const { conversationId, content, mediaUrl, mediaType } = req.body;
-
-      if (!conversationId) {
-        return res.status(400).json({ message: 'Conversation ID is required' });
-      }
-
-      if (!content && !mediaUrl) {
-        return res.status(400).json({ message: 'Message content or media is required' });
-      }
-
-      // Check if conversation exists
-      const conversation = await storage.getConversation(conversationId);
-
-      if (!conversation) {
-        return res.status(404).json({ message: 'Conversation not found' });
-      }
-
-      // Check if user is a participant
-      const participant = await storage.getParticipant(user.id, conversationId);
-
-      if (!participant) {
-        return res.status(403).json({ message: 'Access denied' });
-      }
-
-      // Create message
-      const message = await storage.createMessage({
-        content: content || null,
-        status: 'sent',
-        userId: user.id,
-        conversationId,
-        mediaUrl: mediaUrl || null,
-        mediaType: mediaType || null,
-        sentAt: new Date(),
-        deliveredAt: new Date()
-      });
-
-      // Create message status for all participants
-      const participants = await storage.getParticipantsByConversationId(conversationId);
-
-      for (const p of participants) {
-        await storage.createMessageStatus({
-          userId: p.userId,
-          messageId: message.id,
-          isRead: p.userId === user.id, // Only the sender has read the message initially
-          readAt: p.userId === user.id ? new Date() : null
-        });
-      }
-
-      // Update conversation with last message ID
-      await storage.updateConversation(conversationId, {
-        lastMessageId: message.id,
-        updatedAt: new Date()
-      });
-
-      // Broadcast message to other participants via WebSocket
-      if (chatWss) {
-        for (const p of participants) {
-          if (p.userId !== user.id) {
-            chatWss.sendToUser(p.userId, {
-              type: 'new_message',
-              payload: {
-                message,
-                conversationId
+              // Check if the user ID is a valid MongoDB ObjectId
+              if (!mongoose.Types.ObjectId.isValid(userId)) {
+                console.log('Invalid ObjectId format:', userId);
+                return res.status(400).json({ message: 'Invalid user ID format' });
               }
-            });
-          }
-        }
-      }
 
-      res.status(201).json(message);
-    } catch (error) {
-      res.status(500).json({ message: 'Server error' });
-    }
-  });
+              // Find the other user by ObjectId
+              const otherUser = await UserModel.findById(userId);
 
-  app.get('/api/messages/:conversationId', authMiddleware, async (req: Request, res: Response) => {
-    try {
-      const user = getAuthUser(req);
+              if (!otherUser) {
+                console.log('User not found with ID:', userId);
+                return res.status(404).json({ message: 'User not found' });
+              }
 
-      if (!user) {
-        return res.status(401).json({ message: 'Authentication required' });
-      }
+              console.log('Found user:', otherUser.username);
 
-      // Support both number and MongoDB string IDs
-      const conversationId = req.params.conversationId;
-      console.log(`Getting messages for conversation ID: ${conversationId}`);
+              // Check if conversation already exists
+              const { ConversationModel } = await import('./models/Conversation');
+              const { ParticipantModel } = await import('./models/Participant');
 
-      // Convert string ID to number if possible - for compatibility with different storage types
-      let convId = conversationId;
-      if (!isNaN(parseInt(conversationId))) {
-        convId = parseInt(conversationId);
-      }
+              // Find conversations where both users are participants
+              const userConversations = await ParticipantModel.find({ 
+                userId: user.id 
+              }).select('conversationId');
 
-      // For MongoDB string IDs, we need special handling
-      try {
-        // Instead of checking participants, just get the conversation directly
-        const conversation = await storage.getConversation(conversationId);
+              const userConversationIds = userConversations.map(p => p.conversationId);
 
-        if (!conversation) {
-          console.log(`Conversation ${conversationId} not found`);
-          return res.status(404).json({ message: 'Conversation not found' });
-        }
+              const sharedConversations = await ParticipantModel.find({
+                userId: otherUser.id,
+                conversationId: { $in: userConversationIds }
+              }).populate('conversationId');
 
-        console.log(`Found conversation: ${JSON.stringify(conversation)}`);
+              // Filter to find direct (non-group) conversations
+              let existingConversation = null;
+              for (const participant of sharedConversations) {
+                const conv = participant.conversationId;
+                if (!conv.isGroup) {
+                  existingConversation = conv;
+                  break;
+                }
+              }
 
-        // For MongoDB, we'll get messages directly by the string ID
-        // We'll skip the participant check for now since it's causing issues with MongoDB
-      } catch (error) {
-        console.log(`Error getting conversation: ${error}`);
-        // Continue anyway for debugging
-      }
+              if (existingConversation) {
+                console.log('Found existing conversation:', existingConversation.id);
+                return res.json(existingConversation);
+              }
 
-      // Try to get messages using both the original conversation ID and the processed one
-      let messages;
+              // Create new conversation
+              const newConversation = new ConversationModel({
+                isGroup: false,
+                name: null,
+                avatarUrl: null,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                lastMessageId: null
+              });
 
-      try {
-        // Try with the original ID string first (for MongoDB)
-        messages = await storage.getMessagesByConversationId(conversationId);
-        console.log(`Found ${messages.length} messages using original ID ${conversationId}`);
-      } catch (error) {
-        console.error(`Error getting messages with original ID: ${error}`);
+              await newConversation.save();
+              console.log('Created new conversation:', newConversation.id);
 
-        try {
-          // Fall back to the converted ID if needed
-          messages = await storage.getMessagesByConversationId(convId);
-          console.log(`Found ${messages.length} messages using converted ID ${convId}`);
-        } catch (fallbackError) {
-          console.error(`Error getting messages with fallback ID: ${fallbackError}`);
-          messages = [];
-        }
-      }
+              // Add participants
+              const participant1 = new ParticipantModel({
+                userId: user.id,
+                conversationId: newConversation.id,
+                isAdmin: false,
+                joinedAt: new Date()
+              });
 
-      // Return the messages we found
-      console.log(`Returning ${messages.length} messages for conversation ${conversationId}`);
-      res.json(messages);
-    } catch (error) {
-      res.status(500).json({ message: 'Server error' });
-    }
-  });
+              const participant2 = new ParticipantModel({
+                userId: otherUser.id,
+                conversationId: newConversation.id,
+                isAdmin: false,
+                joinedAt: new Date()
+              });
 
-  // Delete a message endpoint
-  app.delete('/api/messages/:messageId', authMiddleware, async (req: Request, res: Response) => {
-    const { messageId } = req.params;
-    const user = getAuthUser(req);
+              await Promise.all([participant1.save(), participant2.save()]);
+              console.log('Added participants');
 
-    try {
-      if (!user) {
-        return res.status(401).json({ message: 'Unauthorized' });
-      }
+              return res.status(201).json(newConversation);
+                    } catch (dbError) {
+                      console.error('MongoDB error creating direct conversation:', dbError);
+                      throw dbError;
+                    }
+                  } else {
+                    // For in-memory storage, continue with parseInt
+                    const otherUserId = parseInt(userId);
 
-      // Convert message ID to the appropriate type
-      let msgId;
-      try {
-        msgId = parseInt(messageId);
-      } catch (e) {
-        msgId = messageId; // For MongoDB string IDs
-      }
+                    // Check if other user exists
+                    const otherUser = await storage.getUser(otherUserId);
 
-      // Get the message to check ownership
-      const message = await storage.getMessage(msgId);
+                    if (!otherUser) {
+                      return res.status(404).json({ message: 'User not found' });
+                    }
 
-      if (!message) {
-        return res.status(404).json({ message: 'Message not found' });
-      }
+                    // Find or create one-to-one conversation
+                    const conversation = await storage.findOrCreateOneToOneConversation(user.id, otherUserId);
 
-      // Check if user is authorized to delete the message
-      if (message.userId.toString() !== user.id.toString()) {
-        return res.status(403).json({ message: 'Not authorized to delete this message' });
-      }
+                    // Get participants
+                    const participants = await storage.getParticipantsByConversationId(conversation.id);
 
-      // Delete the message
-      const success = await storage.deleteMessage(msgId);
+                    // Get last message
+                    const messages = await storage.getMessagesByConversationId(conversation.id);
 
-      if (success) {
-        res.status(200).json({ success: true, messageId: msgId, conversationId: message.conversationId });
-      } else {
-        res.status(500).json({ message: 'Failed to delete message' });
-      }
-    } catch (error) {
-      console.error('Error deleting message:', error);
-      res.status(500).json({ message: 'Server error' });
-    }
-  });
+                    return res.json({
+                      ...conversation,
+                      participants,
+                      messages
+                    });
+                  }
+                } catch (error) {
+                  console.error('Error creating direct conversation:', error);
+                  res.status(500).json({ message: 'Server error' });
+                }
+              });
 
-  // Search users endpoint - temporarily remove auth middleware for testing
-  app.get('/api/users/search', async (req: Request, res: Response) => {
-    try {
-      console.log('Searching users with query:', req.query.q);
-      // Get user if available, but don't require it for search
-      const user = getAuthUser(req);
-      console.log('User from request:', user ? user.username : 'No user');
-      const query = req.query.q as string;
+              // Message endpoints
+              app.post('/api/messages', authMiddleware, async (req: Request, res: Response) => {
+                try {
+                  const user = getAuthUser(req);
 
-      if (!query || query.length < 2) {
-        return res.status(400).json({ message: 'Search query must be at least 2 characters' });
-      }
+                  if (!user) {
+                    return res.status(401).json({ message: 'Authentication required' });
+                  }
 
-      // Search users by username or display name
-      let results = [];
+                  const { conversationId, content, mediaUrl, mediaType } = req.body;
 
-      if (process.env.MONGODB_URI) {
-        console.log('Using MongoDB search');
-        try {
-          // Create a simpler search endpoint for now
-          const { UserModel } = await import('./models/User');
-          console.log('User model loaded');
+                  if (!conversationId) {
+                    return res.status(400).json({ message: 'Conversation ID is required' });
+                  }
 
-          // Get all users
-          const users = await UserModel.find({}).select('-password');
-          console.log('Found users:', users.length);
+                  if (!content && !mediaUrl) {
+                    return res.status(400).json({ message: 'Message content or media is required' });
+                  }
 
-          // Manual filtering with detailed logging
-          const filteredUsers = [];
-          for (const u of users) {
-            // Skip the current user if authenticated
-            if (user && u.id === user.id) {
-              console.log('Skipping current user:', u.username);
-              continue;
-            }
+                  // Check if conversation exists
+                  const conversation = await storage.getConversation(conversationId);
 
-            // Check if username or displayName matches the query
-            const usernameMatch = u.username.toLowerCase().includes(query.toLowerCase());
-            const displayNameMatch = u.displayName && u.displayName.toLowerCase().includes(query.toLowerCase());
+                  if (!conversation) {
+                    return res.status(404).json({ message: 'Conversation not found' });
+                  }
 
-            if (usernameMatch || displayNameMatch) {
-              console.log('Adding matching user:', u.username);
-              filteredUsers.push(u);
-            }
-          }
+                  // Check if user is a participant
+                  const participant = await storage.getParticipant(user.id, conversationId);
 
-          console.log('Filtered users:', filteredUsers.length);
-          results = filteredUsers.map(u => u.toJSON ? u.toJSON() : u);
-        } catch (dbError) {
-          console.error('MongoDB search error:', dbError);
-          throw dbError;
-        }
-      } else {
-        console.log('Using in-memory search');
-        // If using in-memory storage as fallback
-        const allUsers = Array.from(Object.values((storage as any).usersMap.values()));
-        results = allUsers.filter(u => 
-          u.id !== user.id && // Exclude current user
-          (
-            u.username.toLowerCase().includes(query.toLowerCase()) ||
-            u.displayName.toLowerCase().includes(query.toLowerCase())
-          )
-        ).map(({ password, ...userWithoutPassword }) => userWithoutPassword);
-      }
+                  if (!participant) {
+                    return res.status(403).json({ message: 'Access denied' });
+                  }
 
-      console.log('Returning results:', results.length);
-      res.json(results);
-    } catch (error) {
-      console.error('User search error:', error);
-      res.status(500).json({ message: 'Server error', error: error.message });
-    }
-  });
+                  // Create message
+                  const message = await storage.createMessage({
+                    content: content || null,
+                    status: 'sent',
+                    userId: user.id,
+                    conversationId,
+                    mediaUrl: mediaUrl || null,
+                    mediaType: mediaType || null,
+                    sentAt: new Date(),
+                    deliveredAt: new Date()
+                  });
 
-  return httpServer;
-}
+                  // Create message status for all participants
+                  const participants = await storage.getParticipantsByConversationId(conversationId);
+
+                  for (const p of participants) {
+                    await storage.createMessageStatus({
+                      userId: p.userId,
+                      messageId: message.id,
+                      isRead: p.userId === user.id, // Only the sender has read the message initially
+                      readAt: p.userId === user.id ? new Date() : null
+                    });
+                  }
+
+                  // Update conversation with last message ID
+                  await storage.updateConversation(conversationId, {
+                    lastMessageId: message.id,
+                    updatedAt: new Date()
+                  });
+
+                  // Broadcast message to other participants via WebSocket
+                  if (chatWss) {
+                    for (const p of participants) {
+                      if (p.userId !== user.id) {
+                        chatWss.sendToUser(p.userId, {
+                          type: 'new_message',
+                          payload: {
+                            message,
+                            conversationId
+                          }
+                        });
+                      }
+                    }
+                  }
+
+                  res.status(201).json(message);
+                } catch (error) {
+                  res.status(500).json({ message: 'Server error' });
+                }
+              });
+
+              app.get('/api/messages/:conversationId', authMiddleware, async (req: Request, res: Response) => {
+                try {
+                  const user = getAuthUser(req);
+
+                  if (!user) {
+                    return res.status(401).json({ message: 'Authentication required' });
+                  }
+
+                  // Support both number and MongoDB string IDs
+                      const conversationId = req.params.conversationId;
+                      console.log(Getting messages for conversation ID: ${conversationId});
+
+                      // Convert string ID to number if possible - for compatibility with different storage types
+                      let convId = conversationId;
+                      if (!isNaN(parseInt(conversationId))) {
+                        convId = parseInt(conversationId);
+                      }
+
+                      // For MongoDB string IDs, we need special handling
+                      try {
+                        // Instead of checking participants, just get the conversation directly
+                        const conversation = await storage.getConversation(conversationId);
+
+                        if (!conversation) {
+                          console.log(Conversation ${conversationId} not found);
+                          return res.status(404).json({ message: 'Conversation not found' });
+                        }
+
+                        console.log(Found conversation: ${JSON.stringify(conversation)});
+
+                        // For MongoDB, we'll get messages directly by the string ID
+                        // We'll skip the participant check for now since it's causing issues with MongoDB
+                      } catch (error) {
+                        console.log(Error getting conversation: ${error});
+                        // Continue anyway for debugging
+                      }
+
+                      // Try to get messages using both the original conversation ID and the processed one
+                      let messages;
+
+                      try {
+                        // Try with the original ID string first (for MongoDB)
+                        messages = await storage.getMessagesByConversationId(conversationId);
+                        console.log(Found ${messages.length} messages using original ID ${conversationId});
+                      } catch (error) {
+                        console.error(Error getting messages with original ID: ${error});
+
+                        try {
+                          // Fall back to the converted ID if needed
+                          messages = await storage.getMessagesByConversationId(convId);
+                          console.log(Found ${messages.length} messages using converted ID ${convId});
+                        } catch (fallbackError) {
+                          console.error(Error getting messages with fallback ID: ${fallbackError});
+                          messages = [];
+                        }
+                      }
+
+                      // Return the messages we found
+                      console.log(Returning ${messages.length} messages for conversation ${conversationId});
+                      res.json(messages);
+                    } catch (error) {
+                      res.status(500).json({ message: 'Server error' });
+                    }
+                  });
+
+                  // Delete a message endpoint
+                  app.delete('/api/messages/:messageId', authMiddleware, async (req: Request, res: Response) => {
+                    const { messageId } = req.params;
+                    const user = getAuthUser(req);
+
+                    try {
+                      if (!user) {
+                        return res.status(401).json({ message: 'Unauthorized' });
+                      }
+
+                      // Convert message ID to the appropriate type
+                      let msgId;
+                      try {
+                        msgId = parseInt(messageId);
+                      } catch (e) {
+                        msgId = messageId; // For MongoDB string IDs
+                      }
+
+                      // Get the message to check ownership
+                      const message = await storage.getMessage(msgId);
+
+                      if (!message) {
+                        return res.status(404).json({ message: 'Message not found' });
+                      }
+
+                      // Check if user is authorized to delete the message
+                      if (message.userId.toString() !== user.id.toString()) {
+                        return res.status(403).json({ message: 'Not authorized to delete this message' });
+                      }
+
+                      // Delete the message
+                      const success = await storage.deleteMessage(msgId);
+
+                      if (success) {
+                        res.status(200).json({ success: true, messageId: msgId, conversationId: message.conversationId });
+                      } else {
+                        res.status(500).json({ message: 'Failed to delete message' });
+                      }
+                    } catch (error) {
+                      console.error('Error deleting message:', error);
+                      res.status(500).json({ message: 'Server error' });
+                    }
+                  });
+
+                  // Search users endpoint - temporarily remove auth middleware for testing
+                  app.get('/api/users/search', async (req: Request, res: Response) => {
+
+                    try {
+                      console.log('Searching users with query:', req.query.q);
+                      // Get user if available, but don't require it for search
+                      const user = getAuthUser(req);
+                      console.log('User from request:', user ? user.username : 'No user');
+                      const query = req.query.q as string;
+
+                      if (!query || query.length < 2) {
+                        return res.status(400).json({ message: 'Search query must be at least 2 characters' });
+                      }
+
+                      // Search users by username or display name
+                      let results = [];
+
+                      if (process.env.MONGODB_URI) {
+                        console.log('Using MongoDB search');
+                        try {
+                          // Create a simpler search endpoint for now
+                          const { UserModel } = await import('./models/User');
+                          console.log('User model loaded');
+
+                          // Get all users
+                          const users = await UserModel.find({}).select('-password');
+                          console.log('Found users:', users.length);
+
+                          // Manual filtering with detailed logging
+                          const filteredUsers = [];
+                          for (const u of users) {
+                            // Skip the current user if authenticated
+                            if (user && u.id === user.id) {
+                              console.log('Skipping current user:', u.username);
+                              continue;
+                            }
+
+                            // Check if username or displayName matches the query
+                            const usernameMatch = u.username.toLowerCase().includes(query.toLowerCase());
+                            const displayNameMatch = u.displayName && u.displayName.toLowerCase().includes(query.toLowerCase());
+
+                            if (usernameMatch || displayNameMatch) {
+                              console.log('Adding matching user:', u.username);
+                              filteredUsers.push(u);
+                            }
+                          }
+
+                          console.log('Filtered users:', filteredUsers.length);
+                          results = filteredUsers.map(u => u.toJSON ? u.toJSON() : u);
+                        } catch (dbError) {
+                          console.error('MongoDB search error:', dbError);
+                          throw dbError;
+                        }
+                      } else { 
+                        console.log('Using in-memory search');
+                        // If using in-memory storage as fallback
+                        const allUsers = Array.from(Object.values((storage as any).usersMap.values()));
+                        results = allUsers.filter(u => 
+                          u.id !== user.id && // Exclude current user
+                          (
+                            u.username.toLowerCase().includes(query.toLowerCase()) ||
+                            u.displayName.toLowerCase().includes(query.toLowerCase())
+                          )
+                        ).map(({ password, ...userWithoutPassword }) => userWithoutPassword);
+                      }
+
+                      console.log('Returning results:', results.length);
+                      res.json(results);
+                    } catch (error) {
+                      console.error('User search error:', error);
+                      res.status(500).json({ message: 'Server error', error: error.message });
+                    }
+                    });
+
+                    return httpServer;
+                    }
+                    
