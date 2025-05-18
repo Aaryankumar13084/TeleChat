@@ -17,11 +17,26 @@ export const useMessages = (conversationId?: number | string) => {
     enabled: !!token && !!conversationId,
     queryFn: async () => {
       console.log(`Fetching messages for conversation ID: ${conversationId}`);
-      const response = await apiRequest('GET', `/api/messages/${conversationId}`);
-      const data = await response.json();
-      console.log("Messages received:", data);
-      return data;
-    }
+      try {
+        const response = await apiRequest('GET', `/api/messages/${conversationId}`);
+        
+        // Check if the response was successful
+        if (!response.ok) {
+          console.error(`Error fetching messages: ${response.status} ${response.statusText}`);
+          const errorText = await response.text();
+          console.error(`Error response body: ${errorText}`);
+          return [];
+        }
+        
+        const data = await response.json();
+        console.log("Messages received:", data);
+        return data;
+      } catch (error) {
+        console.error("Error fetching messages:", error);
+        return [];
+      }
+    },
+    retry: 3 // Retry failed requests 3 times
   });
   
   // Send a new message

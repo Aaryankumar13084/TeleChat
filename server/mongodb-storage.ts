@@ -207,14 +207,20 @@ export class MongodbStorage implements IStorage {
     }
   }
   
-  async getMessagesByConversationId(conversationId: number): Promise<Message[]> {
+  async getMessagesByConversationId(conversationId: number | string): Promise<Message[]> {
     try {
+      console.log(`MongoDB Storage: Getting messages for conversation ID: ${conversationId}`);
+      
+      // Handle both number and string IDs
       const messages = await MessageModel.find({ conversationId })
         .sort({ sentAt: 1 });
+      
+      console.log(`MongoDB Storage: Found ${messages.length} messages`);
       
       return messages.map(m => m.toJSON() as unknown as Message);
     } catch (error) {
       log(`Error getting messages by conversation id: ${error}`, 'database');
+      console.error('Failed to get messages:', error);
       return [];
     }
   }
