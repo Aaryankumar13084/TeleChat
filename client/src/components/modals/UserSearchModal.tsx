@@ -79,13 +79,7 @@ export function UserSearchModal({ isOpen, onClose, onUserSelect }: UserSearchMod
       console.log('Selecting user with ID:', userId);
       // Create or get a direct conversation with this user
       const idStr = typeof userId === 'string' ? userId : String(userId);
-      const response = await fetch(`/api/conversations/direct/${idStr}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      const response = await apiRequest('POST', `/api/conversations/direct/${idStr}`);
       
       if (!response.ok) {
         throw new Error(`${response.status}: ${await response.text()}`);
