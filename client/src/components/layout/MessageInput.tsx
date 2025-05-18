@@ -177,18 +177,16 @@ export function MessageInput({ onSendMessage, onTyping }: MessageInputProps) {
             value={message}
             onChange={handleInputChange}
             onKeyDown={handleKeyPress}
-            className="py-2 px-4 bg-gray-100 dark:bg-gray-700 dark:text-white border-0 focus-visible:ring-primary rounded-full message-input w-full"
+            className="py-2 px-4 border-0 focus-visible:ring-primary rounded-full message-input w-full"
             disabled={isUploading}
-            style={{ backgroundColor: 'var(--gray-100)', color: 'var(--foreground)' }}
           />
         </div>
         
         <Button 
           type="submit"
           size="icon"
-          className="bg-primary hover:bg-primary/90 text-white rounded-full w-10 h-10 flex items-center justify-center"
+          className="send-button hover:bg-primary/90 text-white rounded-full w-10 h-10 flex items-center justify-center"
           disabled={!message.trim() || isUploading}
-          style={{ backgroundColor: 'hsl(var(--primary))', color: 'white' }}
         >
           <Send className="h-5 w-5" />
         </Button>
