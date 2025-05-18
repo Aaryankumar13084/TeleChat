@@ -50,13 +50,10 @@ export function UserSearchModal({ isOpen, onClose, onUserSelect }: UserSearchMod
       if (!shouldSearch) return [];
       
       try {
+        // Use apiRequest which will automatically add the token from localStorage
         const response = await apiRequest(
           'GET', 
-          `/api/users/search?q=${encodeURIComponent(searchQuery)}`,
-          undefined,
-          {
-            'Authorization': `Bearer ${token}`
-          }
+          `/api/users/search?q=${encodeURIComponent(searchQuery)}`
         );
         
         if (!response.ok) {

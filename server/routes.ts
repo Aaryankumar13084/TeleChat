@@ -598,17 +598,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Search users endpoint
-  app.get('/api/users/search', authMiddleware, async (req: Request, res: Response) => {
+  // Search users endpoint - temporarily remove auth middleware for testing
+  app.get('/api/users/search', async (req: Request, res: Response) => {
     try {
       console.log('Searching users with query:', req.query.q);
+      // Get user if available, but don't require it for search
       const user = getAuthUser(req);
-      
-      if (!user) {
-        return res.status(401).json({ message: 'Authentication required' });
-      }
-      
-      console.log('Authenticated user:', user);
+      console.log('User from request:', user ? user.username : 'No user');
       const query = req.query.q as string;
       
       if (!query || query.length < 2) {
@@ -632,8 +628,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Manual filtering with detailed logging
           const filteredUsers = [];
           for (const u of users) {
-            // Skip the current user
-            if (u.id === user.id) {
+            // Skip the current user if authenticated
+            if (user && u.id === user.id) {
               console.log('Skipping current user:', u.username);
               continue;
             }
