@@ -69,11 +69,20 @@ export function ChatArea({ conversation, onMenuToggle }: ChatAreaProps) {
   
   // Group messages by date
   const groupedMessages = () => {
-    if (!messages) return [];
+    if (!messages || !Array.isArray(messages)) {
+      console.log("No messages or invalid format:", messages);
+      return [];
+    }
     
+    console.log("Processing messages:", messages);
     const groups: {[key: string]: any[]} = {};
     
     messages.forEach(message => {
+      if (!message || !message.sentAt) {
+        console.warn("Invalid message format:", message);
+        return;
+      }
+      
       const date = new Date(message.sentAt).toDateString();
       if (!groups[date]) {
         groups[date] = [];
@@ -81,10 +90,18 @@ export function ChatArea({ conversation, onMenuToggle }: ChatAreaProps) {
       groups[date].push(message);
     });
     
-    return Object.entries(groups).map(([date, messages]) => ({
+    // Convert to array format and sort by date
+    const result = Object.entries(groups).map(([date, messages]) => ({
       date,
-      messages
-    }));
+      messages: messages.sort((a, b) => 
+        new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime()
+      )
+    })).sort((a, b) => 
+      new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+    
+    console.log("Grouped messages:", result);
+    return result;
   };
   
   // Handle image click

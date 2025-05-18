@@ -27,21 +27,38 @@ export const useMessages = (conversationId?: number | string) => {
   // Send a new message
   const sendMessageMutation = useMutation({
     mutationFn: async (data: InsertMessage) => {
+      console.log("Sending message:", data);
       const res = await apiRequest('POST', '/api/messages', data);
-      return res.json();
+      const responseData = await res.json();
+      console.log("Message sent response:", responseData);
+      return responseData;
     },
     onSuccess: (newMessage) => {
+      console.log("Message sent successfully:", newMessage);
+      
       // Optimistically update the messages cache
       queryClient.setQueryData(['/api/messages', newMessage.conversationId], (oldData: any) => {
+        console.log("Current messages before update:", oldData);
         if (Array.isArray(oldData)) {
-          return [...oldData, newMessage];
+          const updatedData = [...oldData, newMessage];
+          console.log("Updated messages cache:", updatedData);
+          return updatedData;
         }
+        console.log("No existing messages, setting to:", [newMessage]);
         return [newMessage];
       });
       
       // Invalidate the conversations query to update the last message
       queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
+      
+      // Force refetch messages to ensure we have the latest data
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['/api/messages', newMessage.conversationId] });
+      }, 500);
     },
+    onError: (error) => {
+      console.error("Error sending message:", error);
+    }
   });
   
   return {

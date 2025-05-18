@@ -497,21 +497,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: 'Authentication required' });
       }
       
-      const conversationId = parseInt(req.params.conversationId);
+      // Support both number and MongoDB string IDs
+      const conversationId = req.params.conversationId;
+      console.log(`Getting messages for conversation ID: ${conversationId}`);
       
-      if (isNaN(conversationId)) {
-        return res.status(400).json({ message: 'Invalid conversation ID' });
+      // Convert string ID to number if possible - for compatibility with different storage types
+      let convId = conversationId;
+      if (!isNaN(parseInt(conversationId))) {
+        convId = parseInt(conversationId);
       }
       
       // Check if user is a participant
-      const participant = await storage.getParticipant(user.id, conversationId);
+      const participant = await storage.getParticipant(user.id, convId);
       
       if (!participant) {
         return res.status(403).json({ message: 'Access denied' });
       }
       
       // Get messages
-      const messages = await storage.getMessagesByConversationId(conversationId);
+      const messages = await storage.getMessagesByConversationId(convId);
+      console.log(`Found ${messages.length} messages for conversation ${conversationId}`);
       
       res.json(messages);
     } catch (error) {
