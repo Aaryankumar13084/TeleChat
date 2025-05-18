@@ -42,9 +42,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Hash password
       const hashedPassword = await hashPassword(data.password);
 
-      // Create user
+      // Create user without confirmPassword
+      const { confirmPassword, ...userData } = data;
       const user = await storage.createUser({
-        ...data,
+        ...userData,
         password: hashedPassword,
         isOnline: true,
         lastSeen: new Date()
@@ -58,7 +59,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.status(201).json({ user: userWithoutPassword, token });
     } catch (error) {
-      res.status(500).json({ message: 'Server error' });
+      console.error('Registration error:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: 'Invalid input data', errors: error.errors });
+      }
+      res.status(500).json({ message: error.message || 'Server error' });
     }
   });
 
