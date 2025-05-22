@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { ChatArea } from '@/components/layout/ChatArea';
-import { ConfirmDialog } from '@/components/modals/ConfirmDialog';
+import { ConfirmDialog }  from '@/components/modals/ConfirmDialog';
 import { WelcomePage } from '@/pages/Chat/WelcomePage';
 import { useAuth } from '@/hooks/useAuth';
 import { useConversations } from '@/hooks/useConversations';
@@ -122,8 +122,8 @@ export default function ChatHome() {
         )}
       </div>
       
-      {/* Mobile Navigation - Only visible on small screens */}
-      {isMobile && (
+      {/* Mobile Navigation - Only visible on small screens when no chat is selected */}
+      {isMobile && !selectedConversation && (
         <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-2 py-3 flex justify-around">
           <button className="p-2 text-primary dark:text-secondary">
             <i className="fas fa-comment text-xl"></i>
